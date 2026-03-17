@@ -422,8 +422,13 @@
                 smartPreview.src = urlImagem;
                 smartSection.style.display = 'block';
                 
+                // Sugestão de texto automático para o campo de mensagem
+                if (messageArea) {
+                    messageArea.value = `Olá pessoal, segue a escala para o próximo domingo (${dd}/${mm}). Vamos nos organizar! 🙏`;
+                }
+                
                 sendSmartBtn.onclick = async () => {
-                    const text = messageArea.value || `Olá pessoal, segue a escala para o próximo domingo (${dd}/${mm}). Vamos nos organizar! 🙏`;
+                    const text = (messageArea && messageArea.value.trim() !== '') ? messageArea.value : `Olá pessoal, segue a escala para o próximo domingo (${dd}/${mm}). Vamos nos organizar! 🙏`;
                     try {
                         const response = await fetch(urlImagem);
                         const blob = await response.blob();
@@ -477,7 +482,11 @@
         function carregarEscalaManual(arquivo, dataFormatada) {
             if (!smartSection || !smartTitle || !smartPreview || !sendSmartBtn) return;
             const urlImagem = `escalapronta/${arquivo}`;
-            const text = messageArea ? messageArea.value : "";
+            
+            // Sugestão de texto automático para o campo de mensagem
+            if (messageArea) {
+                messageArea.value = `Olá pessoal, segue a escala para o dia ${dataFormatada}. Vamos nos organizar! 🙏`;
+            }
             
             // Exibir preview na seção inteligente (reutilizando o espaço)
             smartSection.style.display = 'block';
@@ -486,7 +495,7 @@
             if (mondayBadge) mondayBadge.style.display = 'none';
 
             sendSmartBtn.onclick = async () => {
-                const finalMsg = messageArea ? messageArea.value : `Olá pessoal, segue a escala para o dia ${dataFormatada}. 🙏`;
+                const finalMsg = (messageArea && messageArea.value.trim() !== '') ? messageArea.value : `Olá pessoal, segue a escala para o dia ${dataFormatada}. 🙏`;
                 try {
                     const response = await fetch(urlImagem);
                     const blob = await response.blob();
