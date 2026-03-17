@@ -208,7 +208,7 @@
 
         <div class="input-group">
             <label for="message">Mensagem para o grupo</label>
-            <textarea id="message" placeholder="Digite sua mensagem aqui...">Escala da semana</textarea>
+            <textarea id="message" placeholder="Digite sua mensagem aqui..."></textarea>
         </div>
 
         <div class="input-group">
@@ -331,13 +331,14 @@
 
         // Chamar detecção ao carregar
         detectarEscala();
-        updateSendButton();
 
         // Habilitar/Desabilitar botão
         messageArea.addEventListener('input', updateSendButton);
 
         function updateSendButton() {
-            sendBtn.disabled = messageArea.value.trim() === '';
+            const hasText = messageArea.value.trim() !== '';
+            const hasFile = fileInput.files.length > 0;
+            sendBtn.disabled = !(hasText || hasFile);
         }
 
         // Preview da Imagem
@@ -356,35 +357,30 @@
         });
 
         // Função de envio
-        sendBtn.addEventListener('click', () => {
+        sendBtn.addEventListener('click', async () => {
             const text = messageArea.value.trim();
-            if (text) {
-                const encodedText = encodeURIComponent(text);
-                
-                // Lógica de envio: No iPhone, primeiro compartilhamos a imagem e depois o texto
-                if (fileInput.files[0]) {
-                    // Se houver imagem, usamos a API de Compartilhamento do Navegador
-                    const file = fileInput.files[0];
-                    if (navigator.share) {
-                        navigator.share({
-                            files: [file],
-                            title: 'Escala do Grupo',
+            const file = fileInput.files[0];
+            
+            if (file) {
+                const filesArray = [file];
+                if (navigator.canShare && navigator.canShare({ files: filesArray })) {
+                    try {
+                        await navigator.share({
+                            files: filesArray,
+                            title: 'Escala',
                             text: text
-                        }).then(() => {
-                            console.log('Compartilhado com sucesso');
-                        }).catch((error) => {
-                            console.error('Erro ao compartilhar:', error);
-                            // Fallback para apenas texto se o compartilhamento falhar
-                            window.location.href = `whatsapp://send?text=${encodedText}`;
                         });
-                    } else {
-                        // Se não suportar share API (Safari antigo), vai apenas o texto
-                        window.location.href = `whatsapp://send?text=${encodedText}`;
+                    } catch (error) {
+                        console.error('Erro ao compartilhar:', error);
+                        // Se falhar o compartilhamento de arquivo, tenta só o texto
+                        if (text) window.location.href = `whatsapp://send?text=${encodeURIComponent(text)}`;
                     }
                 } else {
-                    // Apenas texto
-                    window.location.href = `whatsapp://send?text=${encodedText}`;
+                    alert("Seu navegador não suporta o envio de arquivos. Tentando apenas texto...");
+                    if (text) window.location.href = `whatsapp://send?text=${encodeURIComponent(text)}`;
                 }
+            } else if (text) {
+                window.location.href = `whatsapp://send?text=${encodeURIComponent(text)}`;
             }
         });
 
