@@ -309,16 +309,17 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: var(--bg-dark);
+            background-color: rgba(5, 10, 24, 0.95);
             background-image: linear-gradient(rgba(5, 10, 24, 0.9), rgba(5, 10, 24, 0.9)), url('mins/minislogo.png');
             background-size: cover;
             background-position: center;
             z-index: 2000;
-            display: flex;
+            display: none; /* Oculto por padrão */
             flex-direction: column;
             justify-content: center;
             align-items: center;
             padding: 20px;
+            backdrop-filter: blur(10px);
         }
 
         .login-card {
@@ -331,6 +332,21 @@
             max-width: 350px;
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .close-login {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        .close-login:hover {
+            opacity: 1;
         }
 
         .login-card h2 {
@@ -361,24 +377,58 @@
         }
 
         .user-badge {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: var(--card-bg);
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 13px;
             border: 1px solid rgba(255,255,255,0.1);
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 12px;
+            margin-top: 10px;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .header-login-btn {
+            background: var(--accent-blue);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            margin-top: 10px;
+            transition: opacity 0.2s;
+        }
+
+        .header-login-btn:active {
+            opacity: 0.8;
         }
 
         .logout-btn {
-            font-size: 10px;
+            font-weight: 700;
             color: var(--accent-red);
-            text-decoration: underline;
             cursor: pointer;
+            text-transform: uppercase;
+            font-size: 11px;
+        }
+
+        .member-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 5px;
+        }
+
+        .member-tag {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: var(--text-secondary);
         }
     </style>
 </head>
@@ -387,34 +437,37 @@
     <!-- TELA DE LOGIN -->
     <div id="loginOverlay">
         <div class="login-card">
+            <span class="close-login" onclick="toggleLogin(false)">&times;</span>
             <div class="logo-text" style="font-size: 24px; margin-bottom: 5px;">Ministério <span>AMAR</span></div>
             <p>Juntos até a Eternidade</p>
             
-            <input type="text" id="loginUser" class="login-input" placeholder="Seu Nome">
-            <input type="password" id="loginPass" class="login-input" placeholder="Código de Acesso">
+            <input type="text" id="loginUser" class="login-input" placeholder="Usuário">
+            <input type="password" id="loginPass" class="login-input" placeholder="Senha">
             
             <button onclick="fazerLogin()" class="btn-send" style="padding: 12px;">
                 <span>Acessar Sistema</span>
             </button>
             
-            <p id="loginError" style="color: var(--accent-red); margin-top: 15px; font-size: 12px; display: none;">Usuário ou código incorreto!</p>
+            <p id="loginError" style="color: var(--accent-red); margin-top: 15px; font-size: 12px; display: none;">Usuário ou senha incorretos!</p>
         </div>
     </div>
 
     <header>
-        <div id="userBadge" class="user-badge" style="display: none;">
-            <span id="userNameText">Usuário</span>
-            <span class="logout-btn" onclick="fazerLogout()">Sair</span>
-        </div>
         <div class="logo-text">Ministério <span>AMAR</span></div>
         <p style="margin: 5px 0 0 0; font-size: 12px; opacity: 0.8;">Juntos até a Eternidade</p>
+        
+        <div id="userBadge" class="user-badge" style="display: none;">
+            <span id="userNameText">Logado</span>
+            <span class="logout-btn" onclick="fazerLogout()">Sair</span>
+        </div>
+        <button id="headerLoginBtn" class="header-login-btn" onclick="toggleLogin(true)">Entrar</button>
     </header>
 
     <div class="container">
         
-        <div id="myScalesSection" style="display: none;">
-            <label>Minhas Próximas Escalas</label>
-            <div id="myScalesGrid" class="quick-grid" style="margin-top: 8px; margin-bottom: 20px;">
+        <div id="fullScheduleSection" style="display: none;">
+            <label>Cronograma Completo</label>
+            <div id="fullScheduleGrid" class="quick-grid" style="margin-top: 8px; margin-bottom: 20px;">
                 <!-- Preenchido via JS -->
             </div>
         </div>
@@ -481,17 +534,13 @@
 
         // Variáveis globais de elementos (inicializadas dentro do DOMContentLoaded)
         let messageArea, sendBtn, fileInput, preview, uploadLabel, smartSection, smartTitle, smartPreview, sendSmartBtn, mondayBadge, scalesGrid;
-        let loginOverlay, loginUser, loginPass, loginError, userBadge, userNameText, myScalesSection, myScalesGrid;
+        let loginOverlay, loginUser, loginPass, loginError, userBadge, userNameText, fullScheduleSection, fullScheduleGrid, headerLoginBtn;
 
         // Configuração de Membros e Escalas (Simulação de Banco de Dados)
-        const ACESSO_GERAL = "amar2026"; // Código de acesso para todos
-        const MEMBROS = [
-            "Alexsandro", "João", "Maria", "Pedro", "Lucas", 
-            "Gabriel", "Ana", "Carla", "Marcos", "Sarah"
-        ];
+        const LOGIN_USUARIO = "amar";
+        const LOGIN_SENHA = "ministerioamar";
 
-        // Mapeamento de quem está em cada escala (Exemplo)
-        // O usuário poderá editar esta lista conforme a escala real
+        // Mapeamento de quem está em cada escala
         const ESCALA_MAPPING = {
             "22-03": ["Alexsandro", "João", "Maria"],
             "29-03": ["Pedro", "Lucas", "Gabriel"],
@@ -521,8 +570,9 @@
             loginError = document.getElementById('loginError');
             userBadge = document.getElementById('userBadge');
             userNameText = document.getElementById('userNameText');
-            myScalesSection = document.getElementById('myScalesSection');
-            myScalesGrid = document.getElementById('myScalesGrid');
+            fullScheduleSection = document.getElementById('fullScheduleSection');
+            fullScheduleGrid = document.getElementById('fullScheduleGrid');
+            headerLoginBtn = document.getElementById('headerLoginBtn');
 
             // Verificar se já está logado
             verificarSessao();
@@ -570,12 +620,22 @@
         ];
 
         // Funções de Login
+        function toggleLogin(show) {
+            loginOverlay.style.display = show ? 'flex' : 'none';
+            if (show) {
+                loginUser.value = '';
+                loginPass.value = '';
+                loginUser.focus();
+            }
+        }
+
         function fazerLogin() {
             const user = loginUser.value.trim();
             const pass = loginPass.value.trim();
 
-            if (pass === ACESSO_GERAL && user !== "") {
-                localStorage.setItem('whatsminister_user', user);
+            if (user === LOGIN_USUARIO && pass === LOGIN_SENHA) {
+                localStorage.setItem('whatsminister_logged', 'true');
+                toggleLogin(false);
                 verificarSessao();
             } else {
                 loginError.style.display = 'block';
@@ -584,55 +644,64 @@
         }
 
         function fazerLogout() {
-            localStorage.removeItem('whatsminister_user');
+            localStorage.removeItem('whatsminister_logged');
             location.reload();
         }
 
         function verificarSessao() {
-            const loggedUser = localStorage.getItem('whatsminister_user');
-            if (loggedUser) {
-                loginOverlay.style.display = 'none';
+            const isLogged = localStorage.getItem('whatsminister_logged') === 'true';
+            if (isLogged) {
                 userBadge.style.display = 'flex';
-                userNameText.innerText = loggedUser;
-                renderizarMinhasEscalas(loggedUser);
+                headerLoginBtn.style.display = 'none';
+                if (sendSmartBtn) sendSmartBtn.style.display = 'flex';
+                renderizarCronogramaCompleto();
             } else {
-                loginOverlay.style.display = 'flex';
                 userBadge.style.display = 'none';
+                headerLoginBtn.style.display = 'block';
+                if (sendSmartBtn) sendSmartBtn.style.display = 'none';
+                if (fullScheduleSection) fullScheduleSection.style.display = 'none';
             }
         }
 
-        function renderizarMinhasEscalas(user) {
-            if (!myScalesGrid) return;
-            myScalesGrid.innerHTML = '';
-            let encontrou = false;
+        function renderizarCronogramaCompleto() {
+            if (!fullScheduleGrid) return;
+            fullScheduleGrid.innerHTML = '';
+            
+            // Ordenar por data (aproximado pelo formato DD-MM)
+            const datasOrdenadas = Object.keys(ESCALA_MAPPING).sort((a, b) => {
+                const [da, ma] = a.split('-').map(Number);
+                const [db, mb] = b.split('-').map(Number);
+                return (ma * 100 + da) - (mb * 100 + db);
+            });
 
-            // Percorrer o mapeamento para encontrar escalas do usuário
-            for (const [data, membros] of Object.entries(ESCALA_MAPPING)) {
-                if (membros.includes(user)) {
-                    encontrou = true;
-                    const arquivo = listaEscalas.find(f => f.includes(data));
-                    if (arquivo) {
-                        const card = document.createElement('div');
-                        card.className = 'quick-card';
-                        card.style.borderColor = 'var(--accent-blue)';
-                        card.onclick = () => carregarEscalaManual(arquivo, data.replace('-', '/'));
-                        card.innerHTML = `
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <h4 style="color: var(--accent-blue)">Sua Escala: ${data.replace('-', '/')}</h4>
-                                <span class="status-badge status-upcoming">Confirmado</span>
-                            </div>
-                            <p style="font-size: 11px; opacity: 0.6;">Toque para preparar o envio</p>
-                        `;
-                        myScalesGrid.appendChild(card);
-                    }
+            datasOrdenadas.forEach(data => {
+                const membros = ESCALA_MAPPING[data];
+                const arquivo = listaEscalas.find(f => f.includes(data));
+                
+                const card = document.createElement('div');
+                card.className = 'quick-card';
+                card.style.cursor = 'default';
+                
+                let memberTags = membros.map(m => `<span class="member-tag">${m}</span>`).join('');
+                
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h4 style="color: var(--accent-blue)">Data: ${data.replace('-', '/')}</h4>
+                    </div>
+                    <div class="member-list">
+                        ${memberTags}
+                    </div>
+                `;
+                
+                if (arquivo) {
+                    card.style.cursor = 'pointer';
+                    card.onclick = () => carregarEscalaManual(arquivo, data.replace('-', '/'));
                 }
-            }
+                
+                fullScheduleGrid.appendChild(card);
+            });
 
-            if (encontrou) {
-                myScalesSection.style.display = 'block';
-            } else {
-                myScalesSection.style.display = 'none';
-            }
+            fullScheduleSection.style.display = 'block';
         }
 
         // Função unificada de compartilhamento
@@ -688,6 +757,10 @@
                 smartTitle.innerText = `Escala de Domingo (${dd}/${mm})`;
                 smartPreview.src = urlImagem;
                 smartSection.style.display = 'block';
+                
+                // Mostrar botão de envio apenas se estiver logado
+                const isLogged = localStorage.getItem('whatsminister_logged') === 'true';
+                sendSmartBtn.style.display = isLogged ? 'flex' : 'none';
                 
                 // Sugestão de texto automático para o campo de mensagem
                 if (messageArea) {
@@ -774,6 +847,10 @@
             smartTitle.innerText = `Escala Selecionada (${dataFormatada})`;
             smartPreview.src = urlImagem;
             if (mondayBadge) mondayBadge.style.display = 'none';
+
+            // Mostrar botão de envio apenas se estiver logado
+            const isLogged = localStorage.getItem('whatsminister_logged') === 'true';
+            sendSmartBtn.style.display = isLogged ? 'flex' : 'none';
 
             sendSmartBtn.onclick = async () => {
                 const finalMsg = (messageArea && messageArea.value.trim() !== '') ? messageArea.value : `Olá pessoal, segue a escala para o dia ${dataFormatada}. Vamos nos organizar! 🙏`;
