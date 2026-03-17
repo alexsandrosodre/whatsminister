@@ -208,7 +208,7 @@
 
         <div class="input-group">
             <label for="message">Mensagem para o grupo</label>
-            <textarea id="message" placeholder="Digite sua mensagem aqui..."></textarea>
+            <textarea id="message" placeholder="Digite sua mensagem aqui...">Escala da semana</textarea>
         </div>
 
         <div class="input-group">
@@ -331,6 +331,7 @@
 
         // Chamar detecção ao carregar
         detectarEscala();
+        updateSendButton();
 
         // Habilitar/Desabilitar botão
         messageArea.addEventListener('input', updateSendButton);
