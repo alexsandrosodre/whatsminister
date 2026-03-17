@@ -280,7 +280,7 @@
         <button id="sendBtn" style="display: none"></button>
 
         <div class="quick-messages">
-            <label>Todas as Escalas</label>
+            <label id="gridLabel">Escalas do Mês</label>
             <div id="scalesGrid" class="quick-grid">
                 <!-- Preenchido via JavaScript -->
             </div>
@@ -453,8 +453,22 @@
         function renderizarGradeEscalas(hoje) {
             if (!scalesGrid) return;
             scalesGrid.innerHTML = '';
+            const mesAtual = hoje.getMonth() + 1;
             
-            listaEscalas.forEach(arquivo => {
+            // Filtrar apenas as escalas do mês atual
+            const escalasFiltradas = listaEscalas.filter(arquivo => {
+                const partes = arquivo.split('_');
+                const dataStr = partes[partes.length - 1].replace('.png', '');
+                const [dia, mes] = dataStr.split('-').map(Number);
+                return mes === mesAtual;
+            });
+
+            if (escalasFiltradas.length === 0) {
+                scalesGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-secondary); font-size: 14px; padding: 20px;">Nenhuma escala encontrada para este mês.</p>';
+                return;
+            }
+            
+            escalasFiltradas.forEach(arquivo => {
                 const partes = arquivo.split('_');
                 const dataStr = partes[partes.length - 1].replace('.png', ''); // "22-03"
                 const [dia, mes] = dataStr.split('-').map(Number);
