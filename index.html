@@ -193,12 +193,13 @@
 
     <div class="container">
         <div id="smartSection" class="input-group" style="display:none">
-            <label>Escala Sugerida para Domingo</label>
-            <div class="upload-section" id="smartCard" style="border-style: solid; background-color: #f1f8e9">
+            <label id="smartLabel">Escala Sugerida</label>
+            <div class="upload-section" id="smartCard" style="border-style: solid; background-color: #f1f8e9; border-width: 2px;">
+                <div id="mondayBadge" style="display:none; background-color: var(--dark-green); color: white; padding: 4px 8px; border-radius: 20px; font-size: 10px; font-weight: bold; margin-bottom: 8px; width: fit-content; margin-left: auto; margin-right: auto;">📢 DIA DE ENVIO (SEGUNDA)</div>
                 <p id="smartTitle" style="margin: 0; font-weight: bold; color: var(--dark-green)"></p>
                 <img id="smartPreview" class="preview-image" style="display: block; margin: 10px auto">
                 <button id="sendSmartBtn" class="btn-send" style="padding: 10px; font-size: 14px; margin-top: 10px">
-                    <span>Enviar Escala Sugerida</span>
+                    <span>Enviar Escala para o Grupo</span>
                 </button>
             </div>
             <div style="text-align: center; margin-top: 10px">
@@ -265,6 +266,7 @@
         const smartTitle = document.getElementById('smartTitle');
         const smartPreview = document.getElementById('smartPreview');
         const sendSmartBtn = document.getElementById('sendSmartBtn');
+        const mondayBadge = document.getElementById('mondayBadge');
 
         // Lista de arquivos na pasta escalapronta (gerada automaticamente pelo Trae)
         const listaEscalas = [
@@ -314,7 +316,19 @@
         // Lógica de Inteligência (Auto-detectar escala)
         function detectarEscala() {
             const hoje = new Date();
-            const diasParaDomingo = (7 - hoje.getDay()) % 7;
+            const diaSemana = hoje.getDay(); // 0: Dom, 1: Seg...
+
+            // Mostrar destaque se for segunda (dia 1)
+            if (diaSemana === 1) {
+                if (mondayBadge) mondayBadge.style.display = 'block';
+            }
+
+            // Próximo domingo: 
+            // Se hoje é domingo, queremos o próximo domingo (daqui a 7 dias). 
+            // Senão, queremos o domingo desta semana.
+            let diasParaDomingo = (7 - diaSemana) % 7;
+            if (diasParaDomingo === 0) diasParaDomingo = 7; 
+
             const proximoDomingo = new Date(hoje);
             proximoDomingo.setDate(hoje.getDate() + diasParaDomingo);
             
@@ -326,12 +340,12 @@
             
             if (arquivoEncontrado) {
                 const urlImagem = `escalapronta/${arquivoEncontrado}`;
-                smartTitle.innerText = `Próxima: ${arquivoEncontrado}`;
+                smartTitle.innerText = `Escala de Domingo (${dd}/${mm})`;
                 smartPreview.src = urlImagem;
                 smartSection.style.display = 'block';
                 
                 sendSmartBtn.onclick = async () => {
-                    const text = messageArea.value || `Olá pessoal, segue a escala para o próximo domingo (${dd}/${mm})!`;
+                    const text = messageArea.value || `Olá pessoal, segue a escala para o próximo domingo (${dd}/${mm}). Vamos nos organizar! 🙏`;
                     try {
                         const response = await fetch(urlImagem);
                         const blob = await response.blob();
