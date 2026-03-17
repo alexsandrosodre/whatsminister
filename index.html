@@ -220,31 +220,12 @@
                     <span>Enviar Escala para o Grupo</span>
                 </button>
             </div>
-            <div style="text-align: center; margin-top: 10px">
-                <span style="font-size: 12px; color: var(--text-secondary)">Ou selecione outra manualmente:</span>
-            </div>
         </div>
 
         <div class="input-group">
-            <label for="message">Mensagem para o grupo</label>
-            <textarea id="message" placeholder="Digite sua mensagem aqui..."></textarea>
+            <label for="message">Mensagem Personalizada (Opcional)</label>
+            <textarea id="message" placeholder="Opcional: Digite um aviso extra aqui..."></textarea>
         </div>
-
-        <div class="input-group">
-            <label>Anexar Escala (Imagem)</label>
-            <div class="upload-section" onclick="document.getElementById('fileInput').click()">
-                <div id="uploadLabel">
-                    <span style="font-size: 24px;">📷</span><br>
-                    <span style="font-size: 14px; color: var(--text-secondary)">Tocar para selecionar a escala da semana</span>
-                </div>
-                <img id="preview" class="preview-image">
-                <input type="file" id="fileInput" accept="image/*" style="display: none">
-            </div>
-        </div>
-
-        <button id="sendBtn" class="btn-send" disabled>
-            <span>Enviar Mensagem</span>
-        </button>
 
         <div class="quick-messages">
             <label>Todas as Escalas</label>
@@ -395,31 +376,30 @@
             });
         }
 
-        async function carregarEscalaManual(arquivo, dataFormatada) {
+        function carregarEscalaManual(arquivo, dataFormatada) {
             const urlImagem = `escalapronta/${arquivo}`;
-            messageArea.value = `Olá pessoal, segue a escala para o dia ${dataFormatada}. 🙏`;
+            const text = messageArea.value || `Olá pessoal, segue a escala para o dia ${dataFormatada}. 🙏`;
             
-            try {
-                const response = await fetch(urlImagem);
-                const blob = await response.blob();
-                const file = new File([blob], arquivo, { type: 'image/png' });
-                
-                // Simula o comportamento de seleção de arquivo
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                fileInput.files = dataTransfer.files;
-                
-                // Atualiza o preview
-                preview.src = urlImagem;
-                preview.style.display = 'block';
-                uploadLabel.style.display = 'none';
-                updateSendButton();
-                
-                // Scroll suave para o topo para ver o preview
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            } catch (e) {
-                alert("Erro ao carregar escala: " + e.message);
-            }
+            // Exibir preview na seção inteligente (reutilizando o espaço)
+            smartSection.style.display = 'block';
+            smartTitle.innerText = `Escala Selecionada (${dataFormatada})`;
+            smartPreview.src = urlImagem;
+            mondayBadge.style.display = 'none';
+
+            sendSmartBtn.onclick = async () => {
+                const finalMsg = messageArea.value || `Olá pessoal, segue a escala para o dia ${dataFormatada}. 🙏`;
+                try {
+                    const response = await fetch(urlImagem);
+                    const blob = await response.blob();
+                    const file = new File([blob], arquivo, { type: 'image/png' });
+                    await compartilhar(file, finalMsg);
+                } catch (e) {
+                    alert("Erro ao enviar: " + e.message);
+                }
+            };
+            
+            // Scroll suave para o topo
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         // Chamar detecção ao carregar
