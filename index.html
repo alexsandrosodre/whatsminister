@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ministerio de Louvor Amar - App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <meta name="description" content="App para envio de mensagens em grupo no WhatsApp">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -26,7 +29,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-dark);
             background-image: linear-gradient(rgba(5, 10, 24, 0.8), rgba(5, 10, 24, 0.8)), url('mins/minislogo.png');
             background-size: cover;
@@ -39,6 +42,7 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
+            font-weight: 400;
         }
 
         header {
@@ -56,12 +60,18 @@
 
         .logo-text {
             font-size: 30px;
-            font-weight: bold;
+            font-weight: 700;
             letter-spacing: 1px;
+            color: var(--white);
         }
 
         .logo-text span {
             color: var(--accent-red);
+        }
+
+        header p {
+            color: var(--white) !important;
+            font-weight: 300;
         }
 
         .container {
@@ -82,27 +92,33 @@
         label {
             font-weight: 600;
             font-size: 14px;
-            color: var(--text-secondary);
+            color: var(--white);
             text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
         }
 
         textarea {
             width: 100%;
             height: 100px;
-            padding: 12px;
-            border: 1px solid rgba(255,255,255,0.2);
+            padding: 15px;
+            border: 1px solid rgba(255,255,255,0.3);
             border-radius: 12px;
-            font-size: 16px;
+            font-size: 15px;
+            font-family: 'Poppins', sans-serif;
             resize: none;
             outline: none;
             background-color: var(--card-bg);
             color: var(--white);
             backdrop-filter: blur(5px);
-            transition: border-color 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        textarea::placeholder {
+            color: rgba(255,255,255,0.5);
         }
 
         textarea:focus {
             border-color: var(--accent-blue);
+            box-shadow: 0 0 10px rgba(24, 90, 219, 0.3);
         }
 
         .btn-send {
@@ -112,7 +128,8 @@
             border-radius: 12px;
             padding: 16px;
             font-size: 16px;
-            font-weight: bold;
+            font-weight: 600;
+            font-family: 'Poppins', sans-serif;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -144,6 +161,10 @@
             gap: 12px;
         }
 
+        .quick-messages label {
+            color: var(--white);
+        }
+
         .upload-section {
             background-color: var(--card-bg);
             border: 2px dashed rgba(255,255,255,0.3);
@@ -153,6 +174,11 @@
             cursor: pointer;
             backdrop-filter: blur(5px);
             transition: background-color 0.2s, border-color 0.2s;
+            color: var(--white);
+        }
+
+        .upload-section p {
+            color: var(--white) !important;
         }
 
         .upload-section:hover {
@@ -185,25 +211,25 @@
             font-size: 10px;
             padding: 4px 8px;
             border-radius: 20px;
-            font-weight: bold;
+            font-weight: 700;
             text-transform: uppercase;
         }
 
         .status-past {
-            background-color: rgba(255, 0, 0, 0.2);
-            color: #ff4d4d;
+            background-color: rgba(255, 0, 0, 0.3);
+            color: #ffffff;
             border: 1px solid #ff4d4d;
         }
 
         .status-upcoming {
-            background-color: rgba(0, 255, 0, 0.1);
-            color: #4dff4d;
+            background-color: rgba(0, 255, 0, 0.2);
+            color: #ffffff;
             border: 1px solid #4dff4d;
         }
 
         .quick-card {
             background-color: var(--card-bg);
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
             border-radius: 12px;
             padding: 16px;
             cursor: pointer;
@@ -212,23 +238,26 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+            color: var(--white);
         }
 
         .quick-card:active {
             transform: scale(0.98);
-            background-color: rgba(255,255,255,0.2);
+            background-color: rgba(255,255,255,0.25);
         }
 
         .quick-card h4 {
             margin: 0;
             font-size: 16px;
             color: var(--white);
+            font-weight: 600;
         }
 
         .quick-card p {
             margin: 0;
             font-size: 13px;
-            color: var(--text-secondary);
+            color: rgba(255,255,255,0.7);
+            font-weight: 300;
         }
 
         #imageModal {
@@ -266,9 +295,10 @@
             margin-top: auto;
             padding: 30px;
             font-size: 12px;
-            color: var(--text-secondary);
+            color: rgba(255,255,255,0.6);
             text-align: center;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            font-weight: 300;
         }
     </style>
 </head>
