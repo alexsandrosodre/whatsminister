@@ -416,6 +416,45 @@
             font-size: 11px;
         }
 
+        /* NAVEGAÇÃO */
+        .nav-tabs {
+            display: none; /* Oculto por padrão, aparece logado */
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 15px;
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            font-family: 'Poppins', sans-serif;
+            transition: all 0.2s;
+        }
+
+        .nav-btn.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        .view-section {
+            display: none;
+            width: 100%;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .view-section.active {
+            display: flex;
+        }
+
         .member-list {
             display: flex;
             flex-wrap: wrap;
@@ -461,43 +500,54 @@
             <span class="logout-btn" onclick="fazerLogout()">Sair</span>
         </div>
         <button id="headerLoginBtn" class="header-login-btn" onclick="toggleLogin(true)">Entrar</button>
+
+        <nav id="mainNav" class="nav-tabs">
+            <button id="navHome" class="nav-btn active" onclick="switchView('home')">Início</button>
+            <button id="navSchedule" class="nav-btn" onclick="switchView('schedule')">Cronograma</button>
+        </nav>
     </header>
 
     <div class="container">
         
-        <div id="fullScheduleSection" style="display: none;">
-            <label>Cronograma Completo</label>
-            <div id="fullScheduleGrid" class="quick-grid" style="margin-top: 8px; margin-bottom: 20px;">
-                <!-- Preenchido via JS -->
+        <!-- VIEW: HOME (Envio de Escala) -->
+        <div id="homeView" class="view-section active">
+            <div id="smartSection" class="input-group" style="display:none">
+                    <div class="upload-section" id="smartCard" style="border-style: solid; background-color: var(--card-bg); border-width: 1px; border-color: rgba(255,255,255,0.2);">
+                    <div id="mondayBadge" style="display:none; background-color: var(--dark-green); color: #000; padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: 800; margin-bottom: 8px; width: fit-content; margin-left: auto; margin-right: auto;">📢 DIA DE ENVIO (SEGUNDA)</div>
+                    <p id="smartTitle" style="margin: 0; font-weight: bold; color: var(--white)"></p>
+                    <img id="smartPreview" class="preview-image" style="display: block; margin: 10px auto">
+                    <button id="sendSmartBtn" class="btn-send" style="padding: 10px; font-size: 14px; margin-top: 10px">
+                        <span>Enviar Escala para o Grupo</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="message">Mensagem Personalizada (Opcional)</label>
+                <textarea id="message" placeholder="Opcional: Digite um aviso extra aqui..."></textarea>
+            </div>
+
+            <!-- Elementos ocultos necessários para o funcionamento do script -->
+            <input type="file" id="fileInput" accept="image/*" style="display: none">
+            <img id="preview" style="display: none">
+            <div id="uploadLabel" style="display: none"></div>
+            <button id="sendBtn" style="display: none"></button>
+
+            <div class="quick-messages">
+                <label id="gridLabel">Escalas do Mês</label>
+                <div id="scalesGrid" class="quick-grid">
+                    <!-- Preenchido via JavaScript -->
+                </div>
             </div>
         </div>
 
-        <div id="smartSection" class="input-group" style="display:none">
-                <div class="upload-section" id="smartCard" style="border-style: solid; background-color: var(--card-bg); border-width: 1px; border-color: rgba(255,255,255,0.2);">
-                <div id="mondayBadge" style="display:none; background-color: var(--dark-green); color: #000; padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: 800; margin-bottom: 8px; width: fit-content; margin-left: auto; margin-right: auto;">📢 DIA DE ENVIO (SEGUNDA)</div>
-                <p id="smartTitle" style="margin: 0; font-weight: bold; color: var(--white)"></p>
-                <img id="smartPreview" class="preview-image" style="display: block; margin: 10px auto">
-                <button id="sendSmartBtn" class="btn-send" style="padding: 10px; font-size: 14px; margin-top: 10px">
-                    <span>Enviar Escala para o Grupo</span>
-                </button>
-            </div>
-        </div>
-
-        <div class="input-group">
-            <label for="message">Mensagem Personalizada (Opcional)</label>
-            <textarea id="message" placeholder="Opcional: Digite um aviso extra aqui..."></textarea>
-        </div>
-
-        <!-- Elementos ocultos necessários para o funcionamento do script -->
-        <input type="file" id="fileInput" accept="image/*" style="display: none">
-        <img id="preview" style="display: none">
-        <div id="uploadLabel" style="display: none"></div>
-        <button id="sendBtn" style="display: none"></button>
-
-        <div class="quick-messages">
-            <label id="gridLabel">Escalas do Mês</label>
-            <div id="scalesGrid" class="quick-grid">
-                <!-- Preenchido via JavaScript -->
+        <!-- VIEW: SCHEDULE (Cronograma Completo) -->
+        <div id="scheduleView" class="view-section">
+            <div id="fullScheduleSection">
+                <label>Cronograma Completo 2026</label>
+                <div id="fullScheduleGrid" class="quick-grid" style="margin-top: 8px; margin-bottom: 20px;">
+                    <!-- Preenchido via JS -->
+                </div>
             </div>
         </div>
     </div>
@@ -535,6 +585,7 @@
         // Variáveis globais de elementos (inicializadas dentro do DOMContentLoaded)
         let messageArea, sendBtn, fileInput, preview, uploadLabel, smartSection, smartTitle, smartPreview, sendSmartBtn, mondayBadge, scalesGrid;
         let loginOverlay, loginUser, loginPass, loginError, userBadge, userNameText, fullScheduleSection, fullScheduleGrid, headerLoginBtn;
+        let mainNav, homeView, scheduleView, navHome, navSchedule;
 
         // Configuração de Membros e Escalas (Simulação de Banco de Dados)
         const LOGIN_USUARIO = "amar";
@@ -606,10 +657,17 @@
             userBadge = document.getElementById('userBadge');
             userNameText = document.getElementById('userNameText');
             fullScheduleSection = document.getElementById('fullScheduleSection');
-            fullScheduleGrid = document.getElementById('fullScheduleGrid');
-            headerLoginBtn = document.getElementById('headerLoginBtn');
+             fullScheduleGrid = document.getElementById('fullScheduleGrid');
+             headerLoginBtn = document.getElementById('headerLoginBtn');
+             
+             // Navigation Elements
+             mainNav = document.getElementById('mainNav');
+             homeView = document.getElementById('homeView');
+             scheduleView = document.getElementById('scheduleView');
+             navHome = document.getElementById('navHome');
+             navSchedule = document.getElementById('navSchedule');
 
-            // Verificar se já está logado
+             // Verificar se já está logado
             verificarSessao();
 
             // Chamar detecção ao carregar
@@ -688,14 +746,31 @@
             if (isLogged) {
                 userBadge.style.display = 'flex';
                 headerLoginBtn.style.display = 'none';
+                if (mainNav) mainNav.style.display = 'flex';
                 if (sendSmartBtn) sendSmartBtn.style.display = 'flex';
                 renderizarCronogramaCompleto();
             } else {
                 userBadge.style.display = 'none';
                 headerLoginBtn.style.display = 'block';
+                if (mainNav) mainNav.style.display = 'none';
                 if (sendSmartBtn) sendSmartBtn.style.display = 'none';
-                if (fullScheduleSection) fullScheduleSection.style.display = 'none';
+                switchView('home'); // Garantir que deslogado volta para a home
             }
+        }
+
+        function switchView(viewName) {
+            if (viewName === 'home') {
+                homeView.classList.add('active');
+                scheduleView.classList.remove('active');
+                navHome.classList.add('active');
+                navSchedule.classList.remove('active');
+            } else {
+                homeView.classList.remove('active');
+                scheduleView.classList.add('active');
+                navHome.classList.remove('active');
+                navSchedule.classList.add('active');
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function renderizarCronogramaCompleto() {
