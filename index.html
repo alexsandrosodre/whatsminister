@@ -117,6 +117,28 @@
             gap: 12px;
         }
 
+        .upload-section {
+            background-color: var(--white);
+            border: 2px dashed var(--primary-green);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .upload-section:active {
+            background-color: #e8f5e9;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            margin-top: 10px;
+            display: none;
+        }
+
         .quick-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -175,6 +197,18 @@
             <textarea id="message" placeholder="Digite sua mensagem aqui..."></textarea>
         </div>
 
+        <div class="input-group">
+            <label>Anexar Escala (Imagem)</label>
+            <div class="upload-section" onclick="document.getElementById('fileInput').click()">
+                <div id="uploadLabel">
+                    <span style="font-size: 24px;">📷</span><br>
+                    <span style="font-size: 14px; color: var(--text-secondary)">Tocar para selecionar a escala da semana</span>
+                </div>
+                <img id="preview" class="preview-image">
+                <input type="file" id="fileInput" accept="image/*" style="display: none">
+            </div>
+        </div>
+
         <button id="sendBtn" class="btn-send" disabled>
             <span>Enviar Mensagem</span>
         </button>
@@ -210,10 +244,30 @@
     <script>
         const messageArea = document.getElementById('message');
         const sendBtn = document.getElementById('sendBtn');
+        const fileInput = document.getElementById('fileInput');
+        const preview = document.getElementById('preview');
+        const uploadLabel = document.getElementById('uploadLabel');
 
         // Habilitar/Desabilitar botão
-        messageArea.addEventListener('input', () => {
+        messageArea.addEventListener('input', updateSendButton);
+
+        function updateSendButton() {
             sendBtn.disabled = messageArea.value.trim() === '';
+        }
+
+        // Preview da Imagem
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    preview.src = event.target.result;
+                    preview.style.display = 'block';
+                    uploadLabel.style.display = 'none';
+                    updateSendButton();
+                };
+                reader.readAsDataURL(file);
+            }
         });
 
         // Função de envio
@@ -221,10 +275,31 @@
             const text = messageArea.value.trim();
             if (text) {
                 const encodedText = encodeURIComponent(text);
-                const whatsappUrl = `whatsapp://send?text=${encodedText}`;
                 
-                // Tenta abrir o WhatsApp
-                window.location.href = whatsappUrl;
+                // Lógica de envio: No iPhone, primeiro compartilhamos a imagem e depois o texto
+                if (fileInput.files[0]) {
+                    // Se houver imagem, usamos a API de Compartilhamento do Navegador
+                    const file = fileInput.files[0];
+                    if (navigator.share) {
+                        navigator.share({
+                            files: [file],
+                            title: 'Escala do Grupo',
+                            text: text
+                        }).then(() => {
+                            console.log('Compartilhado com sucesso');
+                        }).catch((error) => {
+                            console.error('Erro ao compartilhar:', error);
+                            // Fallback para apenas texto se o compartilhamento falhar
+                            window.location.href = `whatsapp://send?text=${encodedText}`;
+                        });
+                    } else {
+                        // Se não suportar share API (Safari antigo), vai apenas o texto
+                        window.location.href = `whatsapp://send?text=${encodedText}`;
+                    }
+                } else {
+                    // Apenas texto
+                    window.location.href = `whatsapp://send?text=${encodedText}`;
+                }
             }
         });
 
