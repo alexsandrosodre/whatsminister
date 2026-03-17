@@ -145,6 +145,24 @@
             gap: 12px;
         }
 
+        .status-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .status-past {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+
+        .status-upcoming {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+
         .quick-card {
             background-color: var(--white);
             border: 1px solid #eee;
@@ -229,24 +247,9 @@
         </button>
 
         <div class="quick-messages">
-            <label>Mensagens Rápidas</label>
-            <div class="quick-grid">
-                <div class="quick-card" onclick="setQuickMessage('Escala de Domingo', 'Olá pessoal, a escala de domingo já está disponível!')">
-                    <h4>Escala</h4>
-                    <p>Escala de domingo disponível...</p>
-                </div>
-                <div class="quick-card" onclick="setQuickMessage('Reunião Hoje', 'Lembrete: Reunião importante hoje às 19:00.')">
-                    <h4>Reunião</h4>
-                    <p>Reunião hoje às 19:00...</p>
-                </div>
-                <div class="quick-card" onclick="setQuickMessage('Aviso de Culto', 'Hoje teremos o nosso culto especial às 20h. Não perca!')">
-                    <h4>Culto</h4>
-                    <p>Hoje teremos culto especial...</p>
-                </div>
-                <div class="quick-card" onclick="setQuickMessage('Evento Próximo', 'Novo evento programado para o próximo sábado. Fiquem ligados!')">
-                    <h4>Evento</h4>
-                    <p>Novo evento no sábado...</p>
-                </div>
+            <label>Todas as Escalas</label>
+            <div id="scalesGrid" class="quick-grid">
+                <!-- Preenchido via JavaScript -->
             </div>
         </div>
     </div>
@@ -267,6 +270,7 @@
         const smartPreview = document.getElementById('smartPreview');
         const sendSmartBtn = document.getElementById('sendSmartBtn');
         const mondayBadge = document.getElementById('mondayBadge');
+        const scalesGrid = document.getElementById('scalesGrid');
 
         // Lista de arquivos na pasta escalapronta (gerada automaticamente pelo Trae)
         const listaEscalas = [
@@ -316,16 +320,12 @@
         // Lógica de Inteligência (Auto-detectar escala)
         function detectarEscala() {
             const hoje = new Date();
-            const diaSemana = hoje.getDay(); // 0: Dom, 1: Seg...
+            const diaSemana = hoje.getDay();
 
-            // Mostrar destaque se for segunda (dia 1)
-            if (diaSemana === 1) {
-                if (mondayBadge) mondayBadge.style.display = 'block';
+            if (diaSemana === 1 && mondayBadge) {
+                mondayBadge.style.display = 'block';
             }
 
-            // Próximo domingo: 
-            // Se hoje é domingo, queremos o próximo domingo (daqui a 7 dias). 
-            // Senão, queremos o domingo desta semana.
             let diasParaDomingo = (7 - diaSemana) % 7;
             if (diasParaDomingo === 0) diasParaDomingo = 7; 
 
@@ -355,6 +355,70 @@
                         alert("Erro ao carregar imagem sugerida. Tente selecionar manualmente abaixo.");
                     }
                 };
+            }
+
+            renderizarGradeEscalas(hoje);
+        }
+
+        function renderizarGradeEscalas(hoje) {
+            scalesGrid.innerHTML = '';
+            
+            listaEscalas.forEach(arquivo => {
+                const partes = arquivo.split('_');
+                const dataStr = partes[partes.length - 1].replace('.png', ''); // "22-03"
+                const [dia, mes] = dataStr.split('-').map(Number);
+                
+                // Assumindo o ano atual
+                const dataEscala = new Date(hoje.getFullYear(), mes - 1, dia);
+                
+                // Se a data já passou (comparando apenas o dia, sem hora)
+                const hojeZerado = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+                const escalaZerada = new Date(dataEscala.getFullYear(), dataEscala.getMonth(), dataEscala.getDate());
+                
+                const jaPassou = escalaZerada < hojeZerado;
+                
+                const card = document.createElement('div');
+                card.className = 'quick-card';
+                card.onclick = () => carregarEscalaManual(arquivo, dataStr.replace('-', '/'));
+                
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <h4>Escala ${dataStr.replace('-', '/')}</h4>
+                        <span class="status-badge ${jaPassou ? 'status-past' : 'status-upcoming'}">
+                            ${jaPassou ? 'Passou' : 'Pendente'}
+                        </span>
+                    </div>
+                    <p>${arquivo}</p>
+                `;
+                
+                scalesGrid.appendChild(card);
+            });
+        }
+
+        async function carregarEscalaManual(arquivo, dataFormatada) {
+            const urlImagem = `escalapronta/${arquivo}`;
+            messageArea.value = `Olá pessoal, segue a escala para o dia ${dataFormatada}. 🙏`;
+            
+            try {
+                const response = await fetch(urlImagem);
+                const blob = await response.blob();
+                const file = new File([blob], arquivo, { type: 'image/png' });
+                
+                // Simula o comportamento de seleção de arquivo
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+                
+                // Atualiza o preview
+                preview.src = urlImagem;
+                preview.style.display = 'block';
+                uploadLabel.style.display = 'none';
+                updateSendButton();
+                
+                // Scroll suave para o topo para ver o preview
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch (e) {
+                alert("Erro ao carregar escala: " + e.message);
             }
         }
 
