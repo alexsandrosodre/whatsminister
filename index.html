@@ -266,6 +266,12 @@
             <textarea id="message" placeholder="Opcional: Digite um aviso extra aqui..."></textarea>
         </div>
 
+        <!-- Elementos ocultos necessários para o funcionamento do script -->
+        <input type="file" id="fileInput" accept="image/*" style="display: none">
+        <img id="preview" style="display: none">
+        <div id="uploadLabel" style="display: none"></div>
+        <button id="sendBtn" style="display: none"></button>
+
         <div class="quick-messages">
             <label>Todas as Escalas</label>
             <div id="scalesGrid" class="quick-grid">
