@@ -434,6 +434,9 @@
             cursor: pointer;
             border: none;
             margin-top: 10px;
+            display: block; /* Garante que ocupe sua própria linha */
+            margin-left: auto; /* Centraliza */
+            margin-right: auto; /* Centraliza */
             transition: opacity 0.2s;
         }
 
@@ -556,7 +559,7 @@
             </div>
 
             <div class="input-group">
-                <label for="message">Mensagem Personalizada (Opcional)</label>
+                <label for="message"></label>
                 <textarea id="message" placeholder="Opcional: Digite um aviso extra aqui..."></textarea>
             </div>
 
