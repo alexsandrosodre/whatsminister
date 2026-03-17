@@ -284,10 +284,36 @@
             "40 - escala_20-12.png", "41 - escala_27-12.png"
         ];
 
+        // Função unificada de compartilhamento
+        async function compartilhar(arquivo, texto) {
+            try {
+                if (!navigator.share) {
+                    alert("Seu navegador não suporta compartilhamento. Use o Safari no iPhone.");
+                    return;
+                }
+
+                const shareData = {
+                    title: 'WhatsMinister',
+                    text: texto || ''
+                };
+
+                if (arquivo) {
+                    shareData.files = [arquivo];
+                }
+
+                await navigator.share(shareData);
+                console.log("Compartilhado com sucesso!");
+            } catch (err) {
+                console.error("Erro no compartilhamento:", err);
+                if (err.name !== 'AbortError') {
+                    alert("Erro ao enviar: " + err.message);
+                }
+            }
+        }
+
         // Lógica de Inteligência (Auto-detectar escala)
         function detectarEscala() {
             const hoje = new Date();
-            // Próximo domingo
             const diasParaDomingo = (7 - hoje.getDay()) % 7;
             const proximoDomingo = new Date(hoje);
             proximoDomingo.setDate(hoje.getDate() + diasParaDomingo);
@@ -304,26 +330,15 @@
                 smartPreview.src = urlImagem;
                 smartSection.style.display = 'block';
                 
-                // Botão de Envio Inteligente
                 sendSmartBtn.onclick = async () => {
                     const text = messageArea.value || `Olá pessoal, segue a escala para o próximo domingo (${dd}/${mm})!`;
                     try {
                         const response = await fetch(urlImagem);
                         const blob = await response.blob();
                         const file = new File([blob], arquivoEncontrado, { type: 'image/png' });
-                        
-                        if (navigator.share) {
-                            await navigator.share({
-                                files: [file],
-                                title: 'Escala Ministerial',
-                                text: text
-                            });
-                        } else {
-                            window.location.href = `whatsapp://send?text=${encodeURIComponent(text)}`;
-                        }
+                        await compartilhar(file, text);
                     } catch (e) {
-                        console.error("Erro ao enviar escala inteligente:", e);
-                        alert("Não foi possível carregar a imagem. Tente manualmente.");
+                        alert("Erro ao carregar imagem sugerida. Tente selecionar manualmente abaixo.");
                     }
                 };
             }
@@ -356,32 +371,11 @@
             }
         });
 
-        // Função de envio
+        // Função de envio manual
         sendBtn.addEventListener('click', async () => {
             const text = messageArea.value.trim();
             const file = fileInput.files[0];
-            
-            if (file) {
-                const filesArray = [file];
-                if (navigator.canShare && navigator.canShare({ files: filesArray })) {
-                    try {
-                        await navigator.share({
-                            files: filesArray,
-                            title: 'Escala',
-                            text: text
-                        });
-                    } catch (error) {
-                        console.error('Erro ao compartilhar:', error);
-                        // Se falhar o compartilhamento de arquivo, tenta só o texto
-                        if (text) window.location.href = `whatsapp://send?text=${encodeURIComponent(text)}`;
-                    }
-                } else {
-                    alert("Seu navegador não suporta o envio de arquivos. Tentando apenas texto...");
-                    if (text) window.location.href = `whatsapp://send?text=${encodeURIComponent(text)}`;
-                }
-            } else if (text) {
-                window.location.href = `whatsapp://send?text=${encodeURIComponent(text)}`;
-            }
+            await compartilhar(file, text);
         });
 
         // Função para mensagens rápidas
