@@ -133,25 +133,21 @@
 
         .preview-image {
             max-width: 100%;
-            max-height: 300px;
+            max-height: 250px;
             border-radius: 12px;
             margin-top: 10px;
             display: none;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
-            border: 3px solid var(--white);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             cursor: zoom-in;
-            object-fit: contain;
-            background-color: #eee;
+            transition: transform 0.3s ease;
         }
 
         .preview-image:active {
-            transform: scale(1.05);
-            box-shadow: 0 12px 24px rgba(0,0,0,0.2);
+            transform: scale(1.02);
         }
 
         /* Modal para Zoom da Imagem */
-        .image-modal {
+        #imageModal {
             display: none;
             position: fixed;
             z-index: 1000;
@@ -162,23 +158,23 @@
             background-color: rgba(0,0,0,0.9);
             justify-content: center;
             align-items: center;
-            padding: 20px;
+            flex-direction: column;
         }
 
-        .image-modal img {
-            max-width: 100%;
-            max-height: 100%;
+        #modalImg {
+            max-width: 95%;
+            max-height: 80%;
             border-radius: 8px;
             box-shadow: 0 0 20px rgba(255,255,255,0.2);
         }
 
         .close-modal {
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
             position: absolute;
             top: 20px;
-            right: 20px;
-            color: white;
-            font-size: 30px;
-            font-weight: bold;
+            right: 30px;
             cursor: pointer;
         }
 
@@ -252,22 +248,14 @@
         <h2 style="margin:0">WhatsMinister Web</h2>
     </header>
 
-    <div id="imageModal" class="image-modal" onclick="closeZoom()">
-        <span class="close-modal">&times;</span>
-        <img id="modalImg">
-    </div>
-
     <div class="container">
         <div id="smartSection" class="input-group" style="display:none">
             <label id="smartLabel">Escala Sugerida</label>
-            <div class="upload-section" id="smartCard" style="border-style: solid; background-color: #f1f8e9; border-width: 2px; padding: 15px;">
-                <div id="mondayBadge" style="display:none; background-color: var(--dark-green); color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; margin-bottom: 12px; width: fit-content; margin-left: auto; margin-right: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">📢 DIA DE ENVIO (SEGUNDA)</div>
-                <p id="smartTitle" style="margin: 0; font-weight: bold; color: var(--dark-green); font-size: 16px;"></p>
-                <div style="position: relative; margin: 15px 0;">
-                    <img id="smartPreview" class="preview-image" style="display: block; margin: 0 auto; width: 100%;">
-                    <div style="position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.5); color: white; padding: 4px 8px; border-radius: 6px; font-size: 10px; pointer-events: none;">Toque para ampliar</div>
-                </div>
-                <button id="sendSmartBtn" class="btn-send" style="padding: 12px; font-size: 15px;">
+            <div class="upload-section" id="smartCard" style="border-style: solid; background-color: #f1f8e9; border-width: 2px;">
+                <div id="mondayBadge" style="display:none; background-color: var(--dark-green); color: white; padding: 4px 8px; border-radius: 20px; font-size: 10px; font-weight: bold; margin-bottom: 8px; width: fit-content; margin-left: auto; margin-right: auto;">📢 DIA DE ENVIO (SEGUNDA)</div>
+                <p id="smartTitle" style="margin: 0; font-weight: bold; color: var(--dark-green)"></p>
+                <img id="smartPreview" class="preview-image" style="display: block; margin: 10px auto">
+                <button id="sendSmartBtn" class="btn-send" style="padding: 10px; font-size: 14px; margin-top: 10px">
                     <span>Enviar Escala para o Grupo</span>
                 </button>
             </div>
@@ -291,40 +279,70 @@
         Toque no ícone <b>Compartilhar</b> e selecione <b>"Tela de Início"</b>.
     </div>
 
+    <!-- Modal para Zoom da Imagem -->
+    <div id="imageModal">
+        <span class="close-modal" onclick="closeModal()">&times;</span>
+        <img id="modalImg">
+        <p id="modalCaption" style="color:white; margin-top:15px;"></p>
+    </div>
+
     <script>
-        const messageArea = document.getElementById('message');
-        const sendBtn = document.getElementById('sendBtn');
-        const fileInput = document.getElementById('fileInput');
-        const preview = document.getElementById('preview');
-        const uploadLabel = document.getElementById('uploadLabel');
-        const smartSection = document.getElementById('smartSection');
-        const smartTitle = document.getElementById('smartTitle');
-        const smartPreview = document.getElementById('smartPreview');
-        const sendSmartBtn = document.getElementById('sendSmartBtn');
-        const mondayBadge = document.getElementById('mondayBadge');
-        const scalesGrid = document.getElementById('scalesGrid');
-        const imageModal = document.getElementById('imageModal');
-        const modalImg = document.getElementById('modalImg');
-
-        // Funções de Zoom da Imagem
-        function zoomImage(src) {
-            modalImg.src = src;
-            imageModal.style.display = 'flex';
+        // Função para fechar o modal
+        function closeModal() {
+            document.getElementById('imageModal').style.display = "none";
         }
 
-        function closeZoom() {
-            imageModal.style.display = 'none';
-        }
+        // Abrir modal ao clicar em qualquer preview-image
+        document.addEventListener('click', (e) => {
+            if (e.target && e.target.classList.contains('preview-image')) {
+                const modal = document.getElementById('imageModal');
+                const modalImg = document.getElementById('modalImg');
+                const modalCaption = document.getElementById('modalCaption');
+                modal.style.display = "flex";
+                modalImg.src = e.target.src;
+                modalCaption.innerText = e.target.alt || e.target.id;
+            }
+        });
 
-        // Adicionar clique de zoom às imagens de preview
-        smartPreview.onclick = (e) => {
-            e.stopPropagation();
-            zoomImage(smartPreview.src);
-        };
-        preview.onclick = (e) => {
-            e.stopPropagation();
-            zoomImage(preview.src);
-        };
+        // Variáveis globais de elementos (inicializadas dentro do DOMContentLoaded)
+        let messageArea, sendBtn, fileInput, preview, uploadLabel, smartSection, smartTitle, smartPreview, sendSmartBtn, mondayBadge, scalesGrid;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            messageArea = document.getElementById('message');
+            sendBtn = document.getElementById('sendBtn');
+            fileInput = document.getElementById('fileInput');
+            preview = document.getElementById('preview');
+            uploadLabel = document.getElementById('uploadLabel');
+            smartSection = document.getElementById('smartSection');
+            smartTitle = document.getElementById('smartTitle');
+            smartPreview = document.getElementById('smartPreview');
+            sendSmartBtn = document.getElementById('sendSmartBtn');
+            mondayBadge = document.getElementById('mondayBadge');
+            scalesGrid = document.getElementById('scalesGrid');
+
+            // Chamar detecção ao carregar
+            detectarEscala();
+            
+            // Habilitar/Desabilitar botão
+            if (messageArea) messageArea.addEventListener('input', updateSendButton);
+            
+            // Listener de arquivo
+            if (fileInput) {
+                fileInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            preview.src = event.target.result;
+                            preview.style.display = 'block';
+                            if (uploadLabel) uploadLabel.style.display = 'none';
+                            updateSendButton();
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+        });
 
         // Lista de arquivos na pasta escalapronta (gerada automaticamente pelo Trae)
         const listaEscalas = [
@@ -392,7 +410,7 @@
             
             const arquivoEncontrado = listaEscalas.find(f => f.includes(dataProcurada));
             
-            if (arquivoEncontrado) {
+            if (arquivoEncontrado && smartSection && smartTitle && smartPreview && sendSmartBtn) {
                 const urlImagem = `escalapronta/${arquivoEncontrado}`;
                 smartTitle.innerText = `Escala de Domingo (${dd}/${mm})`;
                 smartPreview.src = urlImagem;
@@ -411,10 +429,11 @@
                 };
             }
 
-            renderizarGradeEscalas(hoje);
+            if (scalesGrid) renderizarGradeEscalas(hoje);
         }
 
         function renderizarGradeEscalas(hoje) {
+            if (!scalesGrid) return;
             scalesGrid.innerHTML = '';
             
             listaEscalas.forEach(arquivo => {
@@ -450,17 +469,18 @@
         }
 
         function carregarEscalaManual(arquivo, dataFormatada) {
+            if (!smartSection || !smartTitle || !smartPreview || !sendSmartBtn) return;
             const urlImagem = `escalapronta/${arquivo}`;
-            const text = messageArea.value || `Olá pessoal, segue a escala para o dia ${dataFormatada}. 🙏`;
+            const text = messageArea ? messageArea.value : "";
             
             // Exibir preview na seção inteligente (reutilizando o espaço)
             smartSection.style.display = 'block';
             smartTitle.innerText = `Escala Selecionada (${dataFormatada})`;
             smartPreview.src = urlImagem;
-            mondayBadge.style.display = 'none';
+            if (mondayBadge) mondayBadge.style.display = 'none';
 
             sendSmartBtn.onclick = async () => {
-                const finalMsg = messageArea.value || `Olá pessoal, segue a escala para o dia ${dataFormatada}. 🙏`;
+                const finalMsg = messageArea ? messageArea.value : `Olá pessoal, segue a escala para o dia ${dataFormatada}. 🙏`;
                 try {
                     const response = await fetch(urlImagem);
                     const blob = await response.blob();
@@ -475,44 +495,18 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // Chamar detecção ao carregar
-        detectarEscala();
-
-        // Habilitar/Desabilitar botão
-        messageArea.addEventListener('input', updateSendButton);
-
         function updateSendButton() {
-            const hasText = messageArea.value.trim() !== '';
-            const hasFile = fileInput.files.length > 0;
+            if (!sendBtn) return;
+            const hasText = messageArea && messageArea.value.trim() !== '';
+            const hasFile = fileInput && fileInput.files.length > 0;
             sendBtn.disabled = !(hasText || hasFile);
         }
 
-        // Preview da Imagem
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    preview.src = event.target.result;
-                    preview.style.display = 'block';
-                    uploadLabel.style.display = 'none';
-                    updateSendButton();
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-
-        // Função de envio manual
-        sendBtn.addEventListener('click', async () => {
-            const text = messageArea.value.trim();
-            const file = fileInput.files[0];
-            await compartilhar(file, text);
-        });
-
         // Função para mensagens rápidas
         function setQuickMessage(title, content) {
+            if (!messageArea) return;
             messageArea.value = content;
-            sendBtn.disabled = false;
+            if (sendBtn) sendBtn.disabled = false;
             
             // Pequena animação de feedback
             messageArea.style.backgroundColor = '#e8f5e9';
