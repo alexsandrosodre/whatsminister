@@ -192,6 +192,20 @@
     </header>
 
     <div class="container">
+        <div id="smartSection" class="input-group" style="display:none">
+            <label>Escala Sugerida para Domingo</label>
+            <div class="upload-section" id="smartCard" style="border-style: solid; background-color: #f1f8e9">
+                <p id="smartTitle" style="margin: 0; font-weight: bold; color: var(--dark-green)"></p>
+                <img id="smartPreview" class="preview-image" style="display: block; margin: 10px auto">
+                <button id="sendSmartBtn" class="btn-send" style="padding: 10px; font-size: 14px; margin-top: 10px">
+                    <span>Enviar Escala Sugerida</span>
+                </button>
+            </div>
+            <div style="text-align: center; margin-top: 10px">
+                <span style="font-size: 12px; color: var(--text-secondary)">Ou selecione outra manualmente:</span>
+            </div>
+        </div>
+
         <div class="input-group">
             <label for="message">Mensagem para o grupo</label>
             <textarea id="message" placeholder="Digite sua mensagem aqui..."></textarea>
@@ -247,6 +261,76 @@
         const fileInput = document.getElementById('fileInput');
         const preview = document.getElementById('preview');
         const uploadLabel = document.getElementById('uploadLabel');
+        const smartSection = document.getElementById('smartSection');
+        const smartTitle = document.getElementById('smartTitle');
+        const smartPreview = document.getElementById('smartPreview');
+        const sendSmartBtn = document.getElementById('sendSmartBtn');
+
+        // Lista de arquivos na pasta escalapronta (gerada automaticamente pelo Trae)
+        const listaEscalas = [
+            "01 - escala_22-03.png", "02 - escala_29-03.png", "03 - escala_05-04.png",
+            "04 - escala_12-04.png", "05 - escala_19-04.png", "06 - escala_26-04.png",
+            "07 - escala_03-05.png", "08 - escala_10-05.png", "09 - escala_17-05.png",
+            "10 - escala_24-05.png", "11 - escala_31-05.png", "12 - escala_07-06.png",
+            "13 - escala_14-06.png", "14 - escala_21-06.png", "15 - escala_28-06.png",
+            "16 - escala_05-07.png", "17 - escala_12-07.png", "18 - escala_19-07.png",
+            "19 - escala_26-07.png", "20 - escala_02-08.png", "21 - escala_09-08.png",
+            "22 - escala_16-08.png", "23 - escala_23-08.png", "24 - escala_30-08.png",
+            "25 - escala_06-09.png", "26 - escala_13-09.png", "27 - escala_20-09.png",
+            "28 - escala_27-09.png", "29 - escala_04-10.png", "30 - escala_11-10.png",
+            "31 - escala_18-10.png", "32 - escala_25-10.png", "33 - escala_01-11.png",
+            "34 - escala_08-11.png", "35 - escala_15-11.png", "36 - escala_22-11.png",
+            "37 - escala_29-11.png", "38 - escala_06-12.png", "39 - escala_13-12.png",
+            "40 - escala_20-12.png", "41 - escala_27-12.png"
+        ];
+
+        // Lógica de Inteligência (Auto-detectar escala)
+        function detectarEscala() {
+            const hoje = new Date();
+            // Próximo domingo
+            const diasParaDomingo = (7 - hoje.getDay()) % 7;
+            const proximoDomingo = new Date(hoje);
+            proximoDomingo.setDate(hoje.getDate() + diasParaDomingo);
+            
+            const dd = String(proximoDomingo.getDate()).padStart(2, '0');
+            const mm = String(proximoDomingo.getMonth() + 1).padStart(2, '0');
+            const dataProcurada = `${dd}-${mm}`;
+            
+            const arquivoEncontrado = listaEscalas.find(f => f.includes(dataProcurada));
+            
+            if (arquivoEncontrado) {
+                const urlImagem = `escalapronta/${arquivoEncontrado}`;
+                smartTitle.innerText = `Próxima: ${arquivoEncontrado}`;
+                smartPreview.src = urlImagem;
+                smartSection.style.display = 'block';
+                
+                // Botão de Envio Inteligente
+                sendSmartBtn.onclick = async () => {
+                    const text = messageArea.value || `Olá pessoal, segue a escala para o próximo domingo (${dd}/${mm})!`;
+                    try {
+                        const response = await fetch(urlImagem);
+                        const blob = await response.blob();
+                        const file = new File([blob], arquivoEncontrado, { type: 'image/png' });
+                        
+                        if (navigator.share) {
+                            await navigator.share({
+                                files: [file],
+                                title: 'Escala Ministerial',
+                                text: text
+                            });
+                        } else {
+                            window.location.href = `whatsapp://send?text=${encodeURIComponent(text)}`;
+                        }
+                    } catch (e) {
+                        console.error("Erro ao enviar escala inteligente:", e);
+                        alert("Não foi possível carregar a imagem. Tente manualmente.");
+                    }
+                };
+            }
+        }
+
+        // Chamar detecção ao carregar
+        detectarEscala();
 
         // Habilitar/Desabilitar botão
         messageArea.addEventListener('input', updateSendButton);
