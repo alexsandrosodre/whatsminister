@@ -96,9 +96,16 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            text-align: center;
             gap: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             transition: transform 0.1s, opacity 0.2s;
+            width: 100%;
+        }
+
+        .btn-send span {
+            width: 100%;
+            text-align: center;
         }
 
         .btn-send:active {
@@ -424,7 +431,7 @@
                 
                 // Sugestão de texto automático para o campo de mensagem
                 if (messageArea) {
-                    messageArea.value = `Olá pessoal, segue a escala para o próximo domingo (${dd}/${mm}). Vamos nos organizar! 🙏`;
+                    messageArea.value = `Olá pessoal, segue a escala para o próximo domingo (${dd}/${mm}). Deus Abençoe! 🙏`;
                 }
                 
                 sendSmartBtn.onclick = async () => {
