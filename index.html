@@ -3,19 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WhatsMinister Web - App</title>
+    <title>Ministerio de Louvor Amar - App</title>
     <meta name="description" content="App para envio de mensagens em grupo no WhatsApp">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="WhatsMinister">
     <style>
         :root {
-            --primary-green: #25D366;
-            --dark-green: #128C7E;
-            --bg-light: #F0F2F5;
+            --primary-blue: #0a1931;
+            --accent-blue: #185adb;
+            --accent-red: #ff0000;
+            --bg-dark: #050a18;
             --white: #FFFFFF;
-            --text-main: #111B21;
-            --text-secondary: #667781;
+            --text-main: #FFFFFF;
+            --text-secondary: #b0b0b0;
+            --card-bg: rgba(255, 255, 255, 0.1);
         }
 
         * {
@@ -25,7 +27,11 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-light);
+            background-color: var(--bg-dark);
+            background-image: linear-gradient(rgba(5, 10, 24, 0.85), rgba(5, 10, 24, 0.85)), url('python/template.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
             color: var(--text-main);
             margin: 0;
             padding: 0;
@@ -37,14 +43,25 @@
 
         header {
             width: 100%;
-            background-color: var(--dark-green);
+            background-color: rgba(10, 25, 49, 0.9);
             color: var(--white);
-            padding: 16px;
+            padding: 20px;
             text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             position: sticky;
             top: 0;
             z-index: 10;
+            backdrop-filter: blur(10px);
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .logo-text span {
+            color: var(--accent-red);
         }
 
         .container {
@@ -66,26 +83,30 @@
             font-weight: 600;
             font-size: 14px;
             color: var(--text-secondary);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
         }
 
         textarea {
             width: 100%;
-            height: 120px;
+            height: 100px;
             padding: 12px;
-            border: 1px solid #ddd;
+            border: 1px solid rgba(255,255,255,0.2);
             border-radius: 12px;
             font-size: 16px;
             resize: none;
             outline: none;
+            background-color: var(--card-bg);
+            color: var(--white);
+            backdrop-filter: blur(5px);
             transition: border-color 0.2s;
         }
 
         textarea:focus {
-            border-color: var(--primary-green);
+            border-color: var(--accent-blue);
         }
 
         .btn-send {
-            background-color: var(--primary-green);
+            background-color: var(--accent-blue);
             color: var(--white);
             border: none;
             border-radius: 12px;
@@ -98,9 +119,13 @@
             justify-content: center;
             text-align: center;
             gap: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: transform 0.1s, opacity 0.2s;
+            box-shadow: 0 4px 15px rgba(24, 90, 219, 0.4);
+            transition: transform 0.1s, opacity 0.2s, background-color 0.2s;
             width: 100%;
+        }
+
+        .btn-send:hover {
+            background-color: #1e6aff;
         }
 
         .btn-send span {
@@ -113,11 +138,6 @@
             opacity: 0.9;
         }
 
-        .btn-send:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-
         .quick-messages {
             display: flex;
             flex-direction: column;
@@ -125,17 +145,19 @@
         }
 
         .upload-section {
-            background-color: var(--white);
-            border: 2px dashed var(--primary-green);
+            background-color: var(--card-bg);
+            border: 2px dashed rgba(255,255,255,0.3);
             border-radius: 12px;
             padding: 20px;
             text-align: center;
             cursor: pointer;
-            transition: background-color 0.2s;
+            backdrop-filter: blur(5px);
+            transition: background-color 0.2s, border-color 0.2s;
         }
 
-        .upload-section:active {
-            background-color: #e8f5e9;
+        .upload-section:hover {
+            background-color: rgba(255,255,255,0.15);
+            border-color: var(--white);
         }
 
         .preview-image {
@@ -144,7 +166,7 @@
             border-radius: 12px;
             margin-top: 10px;
             display: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
             cursor: zoom-in;
             transition: transform 0.3s ease;
         }
@@ -153,7 +175,62 @@
             transform: scale(1.02);
         }
 
-        /* Modal para Zoom da Imagem */
+        .quick-grid {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr);
+            gap: 12px;
+        }
+
+        .status-badge {
+            font-size: 10px;
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .status-past {
+            background-color: rgba(255, 0, 0, 0.2);
+            color: #ff4d4d;
+            border: 1px solid #ff4d4d;
+        }
+
+        .status-upcoming {
+            background-color: rgba(0, 255, 0, 0.1);
+            color: #4dff4d;
+            border: 1px solid #4dff4d;
+        }
+
+        .quick-card {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            transition: transform 0.2s, background-color 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .quick-card:active {
+            transform: scale(0.98);
+            background-color: rgba(255,255,255,0.2);
+        }
+
+        .quick-card h4 {
+            margin: 0;
+            font-size: 16px;
+            color: var(--white);
+        }
+
+        .quick-card p {
+            margin: 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
         #imageModal {
             display: none;
             position: fixed;
@@ -162,7 +239,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.9);
+            background-color: rgba(0,0,0,0.95);
             justify-content: center;
             align-items: center;
             flex-direction: column;
@@ -170,9 +247,9 @@
 
         #modalImg {
             max-width: 95%;
-            max-height: 80%;
+            max-height: 85%;
             border-radius: 8px;
-            box-shadow: 0 0 20px rgba(255,255,255,0.2);
+            box-shadow: 0 0 30px rgba(255,255,255,0.1);
         }
 
         .close-modal {
@@ -185,74 +262,21 @@
             cursor: pointer;
         }
 
-        .quick-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-        }
-
-        .status-badge {
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 10px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .status-past {
-            background-color: #ffebee;
-            color: #c62828;
-        }
-
-        .status-upcoming {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-        }
-
-        .quick-card {
-            background-color: var(--white);
-            border: 1px solid #eee;
-            border-radius: 12px;
-            padding: 12px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .quick-card:active {
-            background-color: #f5f5f5;
-        }
-
-        .quick-card h4 {
-            margin: 0;
-            font-size: 14px;
-            color: var(--dark-green);
-        }
-
-        .quick-card p {
-            margin: 0;
-            font-size: 12px;
-            color: var(--text-secondary);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
         .footer-info {
             margin-top: auto;
-            padding: 20px;
+            padding: 30px;
             font-size: 12px;
             color: var(--text-secondary);
             text-align: center;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
         }
     </style>
 </head>
 <body>
 
     <header>
-        <h2 style="margin:0">WhatsMinister Web</h2>
+        <div class="logo-text">Ministério <span>AMAR</span></div>
+        <p style="margin: 5px 0 0 0; font-size: 12px; opacity: 0.8;">Juntos até a Eternidade</p>
     </header>
 
     <div class="container">
