@@ -14,26 +14,30 @@ module.exports = async (req, res) => {
 
     await ensureSchema();
 
+    const adminUser = String(process.env.ADMIN_USER || '').trim();
+    const adminPass = String(process.env.ADMIN_PASS || '').trim();
+
+    if (adminUser && adminPass && username === adminUser && password === adminPass) {
+      const { salt, hash } = hashPassword(password);
+      const upserted = await sql`
+        INSERT INTO users (username, password_salt, password_hash, is_admin)
+        VALUES (${username}, ${salt}, ${hash}, TRUE)
+        ON CONFLICT (username) DO UPDATE SET
+          password_salt = ${salt},
+          password_hash = ${hash},
+          is_admin = TRUE
+        RETURNING username, is_admin;
+      `;
+      const upsertedUser = upserted.rows[0];
+      const token = createSessionToken({ username: upsertedUser.username, isAdmin: true });
+      setCookie(res, 'wm_session', token, { httpOnly: true, sameSite: 'Lax', secure: isSecureEnv(), maxAge: 60 * 60 * 24 * 7 });
+      return sendJson(res, 200, { ok: true, user: { username: upsertedUser.username, isAdmin: true } });
+    }
+
     const existing = await sql`SELECT id, username, password_salt, password_hash, is_admin FROM users WHERE username = ${username} LIMIT 1;`;
     const user = existing.rows[0];
 
     if (!user) {
-      const adminUser = String(process.env.ADMIN_USER || '').trim();
-      const adminPass = String(process.env.ADMIN_PASS || '').trim();
-
-      if (adminUser && adminPass && username === adminUser && password === adminPass) {
-        const { salt, hash } = hashPassword(password);
-        const created = await sql`
-          INSERT INTO users (username, password_salt, password_hash, is_admin)
-          VALUES (${username}, ${salt}, ${hash}, TRUE)
-          RETURNING username, is_admin;
-        `;
-        const createdUser = created.rows[0];
-        const token = createSessionToken({ username: createdUser.username, isAdmin: true });
-        setCookie(res, 'wm_session', token, { httpOnly: true, sameSite: 'Lax', secure: isSecureEnv(), maxAge: 60 * 60 * 24 * 7 });
-        return sendJson(res, 200, { ok: true, user: { username: createdUser.username, isAdmin: true } });
-      }
-
       return sendJson(res, 401, { ok: false, error: 'invalid_credentials' });
     }
 
