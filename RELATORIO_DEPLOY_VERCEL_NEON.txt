@@ -1,0 +1,141 @@
+RELATÓRIO COMPLETO — WHATSminister (Vercel + Neon) — Diagnóstico e Correções
+Data: 2026-03-23
+
+1) Objetivo
+Migrar o app para rodar na Vercel com persistência real em banco (Postgres/Neon),
+sem depender de localStorage para dados críticos, adicionando:
+- Login via API (/api/login, /api/logout, /api/me)
+- Área Admin para cadastrar usuários e membros
+- Repertório salvo em banco via API
+
+2) Sintomas observados
+2.1) Login falhando
+- Na interface: “Usuário ou senha incorretos!”
+- Em alguns momentos: /api/login retornando 500 (Internal Server Error)
+
+2.2) Avisos/erros no front
+- Aviso de meta: apple-mobile-web-app-capable deprecated
+- 404 no /favicon.ico
+
+3) Causas raiz (root causes)
+3.1) Diferença de formato de retorno do driver SQL (Neon)
+- O driver @neondatabase/serverless retorna, por padrão, um array de linhas (rows),
+  não um objeto no estilo node-postgres { rows: [...] }.
+- O backend estava escrito assumindo o formato { rows }, por exemplo:
+  const result = await sql`SELECT ...`;
+  const user = result.rows[0];
+- Em produção isso gerou erro:
+  “Cannot read properties of undefined (reading '0')”
+  porque result.rows era undefined.
+
+3.2) Conexão/variáveis da Vercel (URL do banco)
+- A Vercel/Neon fornece múltiplas env vars (POSTGRES_URL, POSTGRES_URL_NON_POOLING, etc).
+- Algumas combinações podem causar falhas em ambiente serverless, incluindo parâmetro
+  channel_binding na connection string.
+
+3.3) Bootstrap do admin
+- O fluxo inicial criava admin apenas se o usuário NÃO existisse.
+- Se o usuário existia com senha antiga/errada, o login com ADMIN_PASS não “recriava” o admin.
+
+4) Correções implementadas (resumo)
+4.1) Meta web app e ícones (front)
+- Adicionada meta: mobile-web-app-capable=yes
+- Adicionados ícones para evitar 404 do favicon:
+  - <link rel="icon" href="/mins/minislogo.png">
+  - <link rel="apple-touch-icon" href="/mins/minislogo.png">
+
+4.2) Endpoint de saúde do banco
+- Criado /api/health para verificar conexão e criação do schema no banco.
+- Retorna { ok: true } se o banco está acessível e tabelas foram criadas.
+
+4.3) Robustez na seleção da DATABASE_URL
+- Backend passou a aceitar fallback automático para:
+  DATABASE_URL, POSTGRES_URL_NON_POOLING, DATABASE_URL_UNPOOLED, POSTGRES_URL, POSTGRES_PRISMA_URL
+- Remoção do parâmetro channel_binding da URL, quando presente.
+
+4.4) Bootstrap/reset do admin
+- Login com ADMIN_USER/ADMIN_PASS passou a fazer “upsert”:
+  - cria o admin se não existir
+  - atualiza senha e força is_admin=true se já existir
+
+4.5) Compatibilidade do driver Neon com o backend
+- O wrapper de db foi padronizado para retornar sempre { rows: [...] }:
+  - Isso compatibiliza o restante do backend que espera result.rows
+
+5) Arquivos principais alterados/criados
+Front:
+- index.html
+
+Backend:
+- api/_utils/db.js
+- api/login.js
+- api/logout.js
+- api/me.js
+- api/users.js
+- api/members.js
+- api/repertoire.js
+- api/health.js
+
+Config:
+- package.json (engine node 24.x para compatibilidade Vercel)
+- .gitignore (ignorar .vercel e node_modules)
+
+6) Commits relevantes (ordem recente)
+- 5ec1456 Neon driver compat: padronizar sql para retornar { rows }
+- 9c694f3 Permitir bootstrap/reset do admin via ADMIN_USER/ADMIN_PASS
+- ce453b2 Adicionar /api/health para diagnosticar conexão com banco
+- 1bf3096 Adicionar ícone para evitar 404 do favicon e melhorar PWA
+- eaa6edb Login 500 fix: use non-pooling DB URL fallback and strip channel_binding; surface error detail
+- eb9f320 Ajustar engine Node para Vercel e ignorar .vercel
+- 79d3f02 Adicionar backend com banco (Vercel/Neon), login e área admin
+
+7) Como validar que está tudo funcionando
+7.1) Saúde do banco
+- Abrir no navegador:
+  https://whatsminister.vercel.app/api/health
+- Esperado:
+  { "ok": true }
+
+7.2) Sessão do usuário
+- Abrir:
+  https://whatsminister.vercel.app/api/me
+- Deslogado:
+  { "ok": true, "user": null }
+- Logado (admin):
+  { "ok": true, "user": { "username": "admin", "isAdmin": true } }
+
+7.3) Login admin (bootstrap)
+- Usar usuário e senha definidos nas env vars:
+  ADMIN_USER=admin
+  ADMIN_PASS=@suporte01
+- Ao logar, o sistema garante o admin no banco (cria/atualiza).
+
+7.4) Admin (UI)
+- Após logar como admin, o botão “Admin” aparece.
+- Testar:
+  - Criar usuário (credencial)
+  - Cadastrar membro
+  - Editar membro e ativar/desativar
+
+7.5) Repertório (UI)
+- Adicionar música (POST no banco)
+- Editar música (PUT no banco)
+- Recarregar a página e confirmar persistência (não depende de localStorage)
+
+8) Variáveis de ambiente (Vercel)
+Obrigatórias:
+- DATABASE_URL (ou usar POSTGRES_URL_NON_POOLING e deixar DATABASE_URL vazio, pois há fallback)
+- SESSION_SECRET (string longa aleatória)
+- ADMIN_USER
+- ADMIN_PASS
+
+Recomendação:
+- Marcar DATABASE_URL, SESSION_SECRET e ADMIN_PASS como “Sensitive”.
+
+9) Conclusão
+O problema principal do 500 no /api/login era incompatibilidade de formato do retorno SQL
+do driver Neon em relação ao que o backend esperava (result.rows).
+A padronização do wrapper para sempre retornar { rows } eliminou o erro,
+e o bootstrap/reset do admin garante que as credenciais definidas em env vars funcionem
+mesmo se o usuário já existir no banco.
+
