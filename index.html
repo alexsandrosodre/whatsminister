@@ -480,6 +480,114 @@
             font-weight: 600;
         }
 
+        .schedule-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 15px;
+            align-items: start;
+        }
+
+        @media (max-width: 900px) {
+            .schedule-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel-card {
+            background-color: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 14px;
+            padding: 14px;
+            backdrop-filter: blur(8px);
+        }
+
+        .text-input {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(0,0,0,0.25);
+            color: white;
+            font-family: 'Poppins', sans-serif;
+            outline: none;
+        }
+
+        .text-input:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 10px rgba(24, 90, 219, 0.25);
+        }
+
+        .repertoire-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .repertoire-list {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 70vh;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+
+        .repertoire-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .repertoire-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .repertoire-list::-webkit-scrollbar-thumb {
+            background: rgba(24, 90, 219, 0.8);
+            border-radius: 10px;
+        }
+
+        .repertoire-item {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        .repertoire-item-title {
+            font-size: 13px;
+            font-weight: 700;
+            margin: 0 0 6px 0;
+            color: var(--white);
+        }
+
+        .repertoire-item-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .repertoire-link {
+            color: var(--accent-blue);
+            text-decoration: underline;
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 210px;
+            display: inline-block;
+        }
+
+        .repertoire-remove {
+            color: var(--accent-red);
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
         .view-section {
             display: none;
             width: 100%;
@@ -540,6 +648,7 @@
         <nav id="mainNav" class="nav-tabs">
             <button id="navHome" class="nav-btn active" onclick="switchView('home')">Início</button>
             <button id="navSchedule" class="nav-btn" onclick="switchView('schedule')">Cronograma</button>
+            <button id="navRepertoire" class="nav-btn" onclick="switchView('repertoire')">Repertório</button>
         </nav>
     </header>
 
@@ -579,11 +688,25 @@
 
         <!-- VIEW: SCHEDULE (Cronograma Completo) -->
         <div id="scheduleView" class="view-section">
-            <div id="fullScheduleSection">
+            <div id="fullScheduleSection" class="panel-card">
                 <label>Cronograma Completo 2026</label>
-                <div id="fullScheduleGrid" class="quick-grid" style="margin-top: 8px; margin-bottom: 20px;">
+                <div id="fullScheduleGrid" class="quick-grid" style="margin-top: 8px; margin-bottom: 0;">
                     <!-- Preenchido via JS -->
                 </div>
+            </div>
+        </div>
+
+        <div id="repertoireView" class="view-section">
+            <div id="repertoireSection" class="panel-card">
+                <label>Repertório</label>
+                <div class="repertoire-form">
+                    <input id="repertoireName" class="text-input" type="text" placeholder="Nome da música">
+                    <input id="repertoireLink" class="text-input" type="url" placeholder="Link (YouTube/Drive/Spotify)">
+                    <button id="addRepertoireBtn" class="btn-send" style="padding: 10px; font-size: 14px;">
+                        <span>Adicionar Música</span>
+                    </button>
+                </div>
+                <div id="repertoireList" class="repertoire-list"></div>
             </div>
         </div>
     </div>
@@ -621,7 +744,8 @@
         // Variáveis globais de elementos (inicializadas dentro do DOMContentLoaded)
         let messageArea, sendBtn, fileInput, preview, uploadLabel, smartSection, smartTitle, smartPreview, sendSmartBtn, mondayBadge, scalesGrid;
         let loginOverlay, loginUser, loginPass, loginError, userBadge, userNameText, fullScheduleSection, fullScheduleGrid, headerLoginBtn;
-        let mainNav, homeView, scheduleView, navHome, navSchedule;
+        let mainNav, homeView, scheduleView, repertoireView, navHome, navSchedule, navRepertoire;
+        let repertoireName, repertoireLink, addRepertoireBtn, repertoireList;
 
         // Configuração de Membros e Escalas (Simulação de Banco de Dados)
         const LOGIN_USUARIO = "amar";
@@ -702,6 +826,12 @@
              scheduleView = document.getElementById('scheduleView');
              navHome = document.getElementById('navHome');
              navSchedule = document.getElementById('navSchedule');
+             repertoireView = document.getElementById('repertoireView');
+             navRepertoire = document.getElementById('navRepertoire');
+             repertoireName = document.getElementById('repertoireName');
+             repertoireLink = document.getElementById('repertoireLink');
+             addRepertoireBtn = document.getElementById('addRepertoireBtn');
+             repertoireList = document.getElementById('repertoireList');
 
              // Verificar se já está logado
             verificarSessao();
@@ -728,6 +858,21 @@
                     }
                 });
             }
+
+            if (addRepertoireBtn) {
+                addRepertoireBtn.addEventListener('click', adicionarRepertorio);
+            }
+
+            if (repertoireLink) {
+                repertoireLink.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        adicionarRepertorio();
+                    }
+                });
+            }
+
+            renderizarRepertorio();
         });
 
         // Lista de arquivos na pasta escalapronta (gerada automaticamente pelo Trae)
@@ -777,6 +922,96 @@
             location.reload();
         }
 
+        function obterRepertorio() {
+            try {
+                const raw = localStorage.getItem('whatsminister_repertorio');
+                const parsed = raw ? JSON.parse(raw) : [];
+                return Array.isArray(parsed) ? parsed : [];
+            } catch {
+                return [];
+            }
+        }
+
+        function salvarRepertorio(items) {
+            localStorage.setItem('whatsminister_repertorio', JSON.stringify(items));
+        }
+
+        function normalizarLink(link) {
+            const trimmed = (link || '').trim();
+            if (!trimmed) return '';
+            const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+            try {
+                new URL(withProtocol);
+                return withProtocol;
+            } catch {
+                return '';
+            }
+        }
+
+        function adicionarRepertorio() {
+            if (!repertoireName || !repertoireLink) return;
+            const nome = repertoireName.value.trim();
+            const link = normalizarLink(repertoireLink.value);
+
+            if (!nome || !link) {
+                alert('Preencha o nome e um link válido.');
+                return;
+            }
+
+            const items = obterRepertorio();
+            items.unshift({ nome, link, criadoEm: Date.now() });
+            salvarRepertorio(items);
+            repertoireName.value = '';
+            repertoireLink.value = '';
+            renderizarRepertorio();
+        }
+
+        function removerRepertorio(index) {
+            const items = obterRepertorio();
+            items.splice(index, 1);
+            salvarRepertorio(items);
+            renderizarRepertorio();
+        }
+
+        function renderizarRepertorio() {
+            if (!repertoireList) return;
+            const items = obterRepertorio();
+            repertoireList.innerHTML = '';
+
+            if (items.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'repertoire-item';
+                empty.innerHTML = '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhuma música cadastrada ainda.</div>';
+                repertoireList.appendChild(empty);
+                return;
+            }
+
+            items.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = 'repertoire-item';
+
+                const safeNome = (item && item.nome) ? String(item.nome) : 'Sem nome';
+                const safeLink = (item && item.link) ? String(item.link) : '';
+
+                card.innerHTML = `
+                    <div class="repertoire-item-title">${safeNome}</div>
+                    <div class="repertoire-item-actions">
+                        <a class="repertoire-link" href="${safeLink}" target="_blank" rel="noopener noreferrer">${safeLink}</a>
+                        <span class="repertoire-remove" data-index="${index}">Remover</span>
+                    </div>
+                `;
+
+                repertoireList.appendChild(card);
+            });
+
+            repertoireList.querySelectorAll('.repertoire-remove').forEach((el) => {
+                el.addEventListener('click', () => {
+                    const idx = Number(el.getAttribute('data-index'));
+                    if (!Number.isNaN(idx)) removerRepertorio(idx);
+                });
+            });
+        }
+
         function verificarSessao() {
             const isLogged = localStorage.getItem('whatsminister_logged') === 'true';
             if (isLogged) {
@@ -785,6 +1020,7 @@
                 if (mainNav) mainNav.style.display = 'flex';
                 if (sendSmartBtn) sendSmartBtn.style.display = 'flex';
                 renderizarCronogramaCompleto();
+                renderizarRepertorio();
             } else {
                 userBadge.style.display = 'none';
                 headerLoginBtn.style.display = 'block';
@@ -795,16 +1031,24 @@
         }
 
         function switchView(viewName) {
-            if (viewName === 'home') {
-                homeView.classList.add('active');
-                scheduleView.classList.remove('active');
-                navHome.classList.add('active');
-                navSchedule.classList.remove('active');
-            } else {
-                homeView.classList.remove('active');
+            homeView.classList.remove('active');
+            scheduleView.classList.remove('active');
+            if (repertoireView) repertoireView.classList.remove('active');
+
+            navHome.classList.remove('active');
+            navSchedule.classList.remove('active');
+            if (navRepertoire) navRepertoire.classList.remove('active');
+
+            if (viewName === 'schedule') {
                 scheduleView.classList.add('active');
-                navHome.classList.remove('active');
                 navSchedule.classList.add('active');
+            } else if (viewName === 'repertoire') {
+                if (repertoireView) repertoireView.classList.add('active');
+                if (navRepertoire) navRepertoire.classList.add('active');
+                renderizarRepertorio();
+            } else {
+                homeView.classList.add('active');
+                navHome.classList.add('active');
             }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
