@@ -3,7 +3,14 @@ const { parseCookies, verifySessionToken } = require('./security');
 
 async function getUserByUsername(username) {
   await ensureSchema();
-  const result = await sql`SELECT id, username, is_admin, must_change_password FROM users WHERE username = ${username} LIMIT 1;`;
+  const normalized = String(username || '').trim().toLowerCase();
+  const result = await sql`
+    SELECT id, username, is_admin, must_change_password
+    FROM users
+    WHERE LOWER(username) = ${normalized}
+    ORDER BY id DESC
+    LIMIT 1;
+  `;
   return result.rows[0] || null;
 }
 

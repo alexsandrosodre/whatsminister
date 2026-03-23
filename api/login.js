@@ -14,7 +14,7 @@ module.exports = async (req, res) => {
 
     await ensureSchema();
 
-    const adminUser = String(process.env.ADMIN_USER || '').trim();
+    const adminUser = String(process.env.ADMIN_USER || '').trim().toLowerCase();
     const adminPass = String(process.env.ADMIN_PASS || '').trim();
 
     if (adminUser && adminPass && username === adminUser && password === adminPass) {
@@ -35,7 +35,13 @@ module.exports = async (req, res) => {
       return sendJson(res, 200, { ok: true, user: { username: upsertedUser.username, isAdmin: true, mustChangePassword: false } });
     }
 
-    const existing = await sql`SELECT id, username, password_salt, password_hash, is_admin, must_change_password FROM users WHERE username = ${username} LIMIT 1;`;
+    const existing = await sql`
+      SELECT id, username, password_salt, password_hash, is_admin, must_change_password
+      FROM users
+      WHERE LOWER(username) = ${username}
+      ORDER BY id DESC
+      LIMIT 1;
+    `;
     const user = existing.rows[0];
 
     if (!user) {
