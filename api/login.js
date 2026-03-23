@@ -46,9 +46,14 @@ module.exports = async (req, res) => {
     if (!valid) return sendJson(res, 401, { ok: false, error: 'invalid_credentials' });
 
     const isAdmin = Boolean(user.is_admin);
+    let mustChangePassword = Boolean(user.must_change_password);
+    if (!isAdmin && password === '123456' && !mustChangePassword) {
+      await sql`UPDATE users SET must_change_password = TRUE WHERE id = ${user.id};`;
+      mustChangePassword = true;
+    }
     const token = createSessionToken({ username: user.username, isAdmin });
     setCookie(res, 'wm_session', token, { httpOnly: true, sameSite: 'Lax', secure: isSecureEnv(), maxAge: 60 * 60 * 24 * 7 });
-    return sendJson(res, 200, { ok: true, user: { username: user.username, isAdmin, mustChangePassword: Boolean(user.must_change_password) } });
+    return sendJson(res, 200, { ok: true, user: { username: user.username, isAdmin, mustChangePassword } });
   } catch (e) {
     return sendJson(res, 500, { ok: false, error: 'server_error', detail: String(e && e.message ? e.message : e) });
   }
