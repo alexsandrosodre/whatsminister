@@ -45,7 +45,6 @@ module.exports = async (req, res) => {
     setCookie(res, 'wm_session', token, { httpOnly: true, sameSite: 'Lax', secure: isSecureEnv(), maxAge: 60 * 60 * 24 * 7 });
     return sendJson(res, 200, { ok: true, user: { username: user.username, isAdmin } });
   } catch (e) {
-    return sendJson(res, 500, { ok: false, error: 'server_error' });
+    return sendJson(res, 500, { ok: false, error: 'server_error', detail: String(e && e.message ? e.message : e) });
   }
 };
-
