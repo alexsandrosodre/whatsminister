@@ -580,8 +580,8 @@
             display: inline-block;
         }
 
-        .repertoire-remove {
-            color: var(--accent-red);
+        .repertoire-edit {
+            color: var(--accent-blue);
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;
@@ -750,6 +750,7 @@
         let loginOverlay, loginUser, loginPass, loginError, userBadge, userNameText, fullScheduleSection, fullScheduleGrid, headerLoginBtn;
         let mainNav, homeView, scheduleView, repertoireView, navHome, navSchedule, navRepertoire;
         let repertoireName, repertoireLink, addRepertoireBtn, repertoireList;
+        let repertoireEditingIndex = null;
 
         // Configuração de Membros e Escalas (Simulação de Banco de Dados)
         const LOGIN_USUARIO = "amar";
@@ -963,18 +964,38 @@
             }
 
             const items = obterRepertorio();
-            items.unshift({ nome, link, criadoEm: Date.now() });
+            if (repertoireEditingIndex !== null && repertoireEditingIndex >= 0 && repertoireEditingIndex < items.length) {
+                const antigo = items[repertoireEditingIndex] || {};
+                items[repertoireEditingIndex] = { ...antigo, nome, link };
+            } else {
+                items.unshift({ nome, link, criadoEm: Date.now() });
+            }
+
             salvarRepertorio(items);
-            repertoireName.value = '';
-            repertoireLink.value = '';
+            resetarFormularioRepertorio();
             renderizarRepertorio();
         }
 
-        function removerRepertorio(index) {
+        function iniciarEdicaoRepertorio(index) {
             const items = obterRepertorio();
-            items.splice(index, 1);
-            salvarRepertorio(items);
-            renderizarRepertorio();
+            const item = items[index];
+            if (!item || !repertoireName || !repertoireLink) return;
+
+            repertoireEditingIndex = index;
+            repertoireName.value = item.nome || '';
+            repertoireLink.value = item.link || '';
+
+            const label = addRepertoireBtn ? addRepertoireBtn.querySelector('span') : null;
+            if (label) label.innerText = 'Salvar Alteração';
+            repertoireName.focus();
+        }
+
+        function resetarFormularioRepertorio() {
+            repertoireEditingIndex = null;
+            if (repertoireName) repertoireName.value = '';
+            if (repertoireLink) repertoireLink.value = '';
+            const label = addRepertoireBtn ? addRepertoireBtn.querySelector('span') : null;
+            if (label) label.innerText = 'Adicionar Música';
         }
 
         function renderizarRepertorio() {
@@ -1001,17 +1022,17 @@
                     <div class="repertoire-item-title">${safeNome}</div>
                     <div class="repertoire-item-actions">
                         <a class="repertoire-link" href="${safeLink}" target="_blank" rel="noopener noreferrer">${safeLink}</a>
-                        <span class="repertoire-remove" data-index="${index}">Remover</span>
+                        <span class="repertoire-edit" data-index="${index}">Editar</span>
                     </div>
                 `;
 
                 repertoireList.appendChild(card);
             });
 
-            repertoireList.querySelectorAll('.repertoire-remove').forEach((el) => {
+            repertoireList.querySelectorAll('.repertoire-edit').forEach((el) => {
                 el.addEventListener('click', () => {
                     const idx = Number(el.getAttribute('data-index'));
-                    if (!Number.isNaN(idx)) removerRepertorio(idx);
+                    if (!Number.isNaN(idx)) iniciarEdicaoRepertorio(idx);
                 });
             });
         }
