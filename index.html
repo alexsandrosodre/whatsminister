@@ -501,6 +501,67 @@
             backdrop-filter: blur(8px);
         }
 
+        .admin-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            align-items: start;
+        }
+
+        @media (max-width: 900px) {
+            .admin-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .admin-list {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .admin-item {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .admin-item-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--white);
+            margin: 0;
+        }
+
+        .admin-item-sub {
+            font-size: 11px;
+            color: rgba(255,255,255,0.6);
+            margin-top: 2px;
+        }
+
+        .admin-action {
+            color: var(--accent-blue);
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .admin-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.7);
+        }
+
         .text-input {
             width: 100%;
             padding: 12px 14px;
@@ -649,6 +710,7 @@
             <button id="navHome" class="nav-btn active" onclick="switchView('home')">Início</button>
             <button id="navSchedule" class="nav-btn" onclick="switchView('schedule')">Cronograma</button>
             <button id="navRepertoire" class="nav-btn" onclick="switchView('repertoire')">Repertório</button>
+            <button id="navAdmin" class="nav-btn" style="display:none" onclick="switchView('admin')">Admin</button>
         </nav>
     </header>
 
@@ -713,6 +775,37 @@
                 <div id="repertoireList" class="repertoire-list"></div>
             </div>
         </div>
+
+        <div id="adminView" class="view-section">
+            <div class="admin-grid">
+                <div class="panel-card">
+                    <label>Credenciais (Usuários)</label>
+                    <div class="repertoire-form">
+                        <input id="adminNewUsername" class="text-input" type="text" placeholder="Usuário">
+                        <input id="adminNewPassword" class="text-input" type="password" placeholder="Senha">
+                        <label class="admin-toggle">
+                            <input id="adminNewIsAdmin" type="checkbox">
+                            Admin
+                        </label>
+                        <button id="adminCreateUserBtn" class="btn-send" style="padding: 10px; font-size: 14px;">
+                            <span>Criar Usuário</span>
+                        </button>
+                    </div>
+                    <div id="adminUsersList" class="admin-list"></div>
+                </div>
+
+                <div class="panel-card">
+                    <label>Membros</label>
+                    <div class="repertoire-form">
+                        <input id="adminMemberName" class="text-input" type="text" placeholder="Nome do membro">
+                        <button id="adminCreateMemberBtn" class="btn-send" style="padding: 10px; font-size: 14px;">
+                            <span>Adicionar Membro</span>
+                        </button>
+                    </div>
+                    <div id="adminMembersList" class="admin-list"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="footer-info">
@@ -748,13 +841,18 @@
         // Variáveis globais de elementos (inicializadas dentro do DOMContentLoaded)
         let messageArea, sendBtn, fileInput, preview, uploadLabel, smartSection, smartTitle, smartPreview, sendSmartBtn, mondayBadge, scalesGrid;
         let loginOverlay, loginUser, loginPass, loginError, userBadge, userNameText, fullScheduleSection, fullScheduleGrid, headerLoginBtn;
-        let mainNav, homeView, scheduleView, repertoireView, navHome, navSchedule, navRepertoire;
+        let mainNav, homeView, scheduleView, repertoireView, adminView, navHome, navSchedule, navRepertoire, navAdmin;
         let repertoireName, repertoireLink, addRepertoireBtn, repertoireList;
-        let repertoireEditingIndex = null;
+        let currentUser = null;
+        let repertoireItems = [];
+        let repertoireEditingId = null;
+        let adminUsers = [];
+        let adminMembers = [];
+        let adminMemberEditingId = null;
+        let adminNewUsername, adminNewPassword, adminNewIsAdmin, adminCreateUserBtn, adminUsersList;
+        let adminMemberName, adminCreateMemberBtn, adminMembersList;
 
-        // Configuração de Membros e Escalas (Simulação de Banco de Dados)
-        const LOGIN_USUARIO = "amar";
-        const LOGIN_SENHA = "ministerioamar";
+        // Autenticação e dados persistentes agora usam API (/api) + banco na Vercel
 
         // Mapeamento de quem está em cada escala
         const ESCALA_MAPPING = {
@@ -833,10 +931,20 @@
              navSchedule = document.getElementById('navSchedule');
              repertoireView = document.getElementById('repertoireView');
              navRepertoire = document.getElementById('navRepertoire');
+             adminView = document.getElementById('adminView');
+             navAdmin = document.getElementById('navAdmin');
              repertoireName = document.getElementById('repertoireName');
              repertoireLink = document.getElementById('repertoireLink');
              addRepertoireBtn = document.getElementById('addRepertoireBtn');
              repertoireList = document.getElementById('repertoireList');
+             adminNewUsername = document.getElementById('adminNewUsername');
+             adminNewPassword = document.getElementById('adminNewPassword');
+             adminNewIsAdmin = document.getElementById('adminNewIsAdmin');
+             adminCreateUserBtn = document.getElementById('adminCreateUserBtn');
+             adminUsersList = document.getElementById('adminUsersList');
+             adminMemberName = document.getElementById('adminMemberName');
+             adminCreateMemberBtn = document.getElementById('adminCreateMemberBtn');
+             adminMembersList = document.getElementById('adminMembersList');
 
              // Verificar se já está logado
             verificarSessao();
@@ -878,6 +986,14 @@
             }
 
             renderizarRepertorio();
+
+            if (adminCreateUserBtn) {
+                adminCreateUserBtn.addEventListener('click', adminCriarUsuario);
+            }
+
+            if (adminCreateMemberBtn) {
+                adminCreateMemberBtn.addEventListener('click', adminCriarMembro);
+            }
         });
 
         // Lista de arquivos na pasta escalapronta (gerada automaticamente pelo Trae)
@@ -908,37 +1024,43 @@
             }
         }
 
-        function fazerLogin() {
-            const user = loginUser.value.trim();
-            const pass = loginPass.value.trim();
+        async function apiJson(path, options = {}) {
+            const res = await fetch(path, {
+                ...options,
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(options.headers || {})
+                }
+            });
+            const data = await res.json().catch(() => null);
+            return { ok: res.ok, status: res.status, data };
+        }
 
-            if (user === LOGIN_USUARIO && pass === LOGIN_SENHA) {
-                localStorage.setItem('whatsminister_logged', 'true');
-                toggleLogin(false);
-                verificarSessao();
-            } else {
+        async function fazerLogin() {
+            const username = loginUser.value.trim();
+            const password = loginPass.value.trim();
+
+            const result = await apiJson('/api/login', {
+                method: 'POST',
+                body: JSON.stringify({ username, password })
+            });
+
+            if (!result.ok || !result.data || !result.data.ok) {
                 loginError.style.display = 'block';
                 setTimeout(() => { loginError.style.display = 'none'; }, 3000);
+                return;
             }
+
+            toggleLogin(false);
+            await verificarSessao();
         }
 
-        function fazerLogout() {
-            localStorage.removeItem('whatsminister_logged');
-            location.reload();
-        }
-
-        function obterRepertorio() {
-            try {
-                const raw = localStorage.getItem('whatsminister_repertorio');
-                const parsed = raw ? JSON.parse(raw) : [];
-                return Array.isArray(parsed) ? parsed : [];
-            } catch {
-                return [];
-            }
-        }
-
-        function salvarRepertorio(items) {
-            localStorage.setItem('whatsminister_repertorio', JSON.stringify(items));
+        async function fazerLogout() {
+            await fetch('/api/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+            currentUser = null;
+            switchView('home');
+            await verificarSessao();
         }
 
         function normalizarLink(link) {
@@ -953,7 +1075,16 @@
             }
         }
 
-        function adicionarRepertorio() {
+        async function carregarRepertorio() {
+            const result = await apiJson('/api/repertoire', { method: 'GET' });
+            if (!result.ok || !result.data || !result.data.ok) {
+                repertoireItems = [];
+                return;
+            }
+            repertoireItems = Array.isArray(result.data.items) ? result.data.items : [];
+        }
+
+        async function adicionarRepertorio() {
             if (!repertoireName || !repertoireLink) return;
             const nome = repertoireName.value.trim();
             const link = normalizarLink(repertoireLink.value);
@@ -963,26 +1094,37 @@
                 return;
             }
 
-            const items = obterRepertorio();
-            if (repertoireEditingIndex !== null && repertoireEditingIndex >= 0 && repertoireEditingIndex < items.length) {
-                const antigo = items[repertoireEditingIndex] || {};
-                items[repertoireEditingIndex] = { ...antigo, nome, link };
+            if (repertoireEditingId !== null) {
+                const result = await apiJson('/api/repertoire', {
+                    method: 'PUT',
+                    body: JSON.stringify({ id: repertoireEditingId, name: nome, link })
+                });
+                if (!result.ok || !result.data || !result.data.ok) {
+                    alert('Erro ao salvar a alteração.');
+                    return;
+                }
             } else {
-                items.unshift({ nome, link, criadoEm: Date.now() });
+                const result = await apiJson('/api/repertoire', {
+                    method: 'POST',
+                    body: JSON.stringify({ name: nome, link })
+                });
+                if (!result.ok || !result.data || !result.data.ok) {
+                    alert('Erro ao adicionar música.');
+                    return;
+                }
             }
 
-            salvarRepertorio(items);
             resetarFormularioRepertorio();
+            await carregarRepertorio();
             renderizarRepertorio();
         }
 
-        function iniciarEdicaoRepertorio(index) {
-            const items = obterRepertorio();
-            const item = items[index];
+        function iniciarEdicaoRepertorio(id) {
+            const item = repertoireItems.find((x) => Number(x.id) === Number(id));
             if (!item || !repertoireName || !repertoireLink) return;
 
-            repertoireEditingIndex = index;
-            repertoireName.value = item.nome || '';
+            repertoireEditingId = Number(item.id);
+            repertoireName.value = item.name || '';
             repertoireLink.value = item.link || '';
 
             const label = addRepertoireBtn ? addRepertoireBtn.querySelector('span') : null;
@@ -991,7 +1133,7 @@
         }
 
         function resetarFormularioRepertorio() {
-            repertoireEditingIndex = null;
+            repertoireEditingId = null;
             if (repertoireName) repertoireName.value = '';
             if (repertoireLink) repertoireLink.value = '';
             const label = addRepertoireBtn ? addRepertoireBtn.querySelector('span') : null;
@@ -1000,10 +1142,9 @@
 
         function renderizarRepertorio() {
             if (!repertoireList) return;
-            const items = obterRepertorio();
             repertoireList.innerHTML = '';
 
-            if (items.length === 0) {
+            if (repertoireItems.length === 0) {
                 const empty = document.createElement('div');
                 empty.className = 'repertoire-item';
                 empty.innerHTML = '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhuma música cadastrada ainda.</div>';
@@ -1011,18 +1152,19 @@
                 return;
             }
 
-            items.forEach((item, index) => {
+            repertoireItems.forEach((item) => {
                 const card = document.createElement('div');
                 card.className = 'repertoire-item';
 
-                const safeNome = (item && item.nome) ? String(item.nome) : 'Sem nome';
+                const safeNome = (item && item.name) ? String(item.name) : 'Sem nome';
                 const safeLink = (item && item.link) ? String(item.link) : '';
+                const safeId = Number(item && item.id);
 
                 card.innerHTML = `
                     <div class="repertoire-item-title">${safeNome}</div>
                     <div class="repertoire-item-actions">
                         <a class="repertoire-link" href="${safeLink}" target="_blank" rel="noopener noreferrer">${safeLink}</a>
-                        <span class="repertoire-edit" data-index="${index}">Editar</span>
+                        <span class="repertoire-edit" data-id="${safeId}">Editar</span>
                     </div>
                 `;
 
@@ -1031,27 +1173,212 @@
 
             repertoireList.querySelectorAll('.repertoire-edit').forEach((el) => {
                 el.addEventListener('click', () => {
-                    const idx = Number(el.getAttribute('data-index'));
-                    if (!Number.isNaN(idx)) iniciarEdicaoRepertorio(idx);
+                    const id = Number(el.getAttribute('data-id'));
+                    if (!Number.isNaN(id)) iniciarEdicaoRepertorio(id);
                 });
             });
         }
 
-        function verificarSessao() {
-            const isLogged = localStorage.getItem('whatsminister_logged') === 'true';
+        async function adminCarregarUsuarios() {
+            const result = await apiJson('/api/users', { method: 'GET' });
+            if (!result.ok || !result.data || !result.data.ok) {
+                adminUsers = [];
+                return;
+            }
+            adminUsers = Array.isArray(result.data.users) ? result.data.users : [];
+        }
+
+        async function adminCarregarMembros() {
+            const result = await apiJson('/api/members', { method: 'GET' });
+            if (!result.ok || !result.data || !result.data.ok) {
+                adminMembers = [];
+                return;
+            }
+            adminMembers = Array.isArray(result.data.members) ? result.data.members : [];
+        }
+
+        function adminRenderUsuarios() {
+            if (!adminUsersList) return;
+            adminUsersList.innerHTML = '';
+
+            if (adminUsers.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'admin-item';
+                empty.innerHTML = '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhum usuário cadastrado.</div>';
+                adminUsersList.appendChild(empty);
+                return;
+            }
+
+            adminUsers.forEach((u) => {
+                const item = document.createElement('div');
+                item.className = 'admin-item';
+                const username = u && u.username ? String(u.username) : '';
+                const isAdmin = Boolean(u && (u.is_admin ?? u.isAdmin));
+                item.innerHTML = `
+                    <div style="min-width: 0;">
+                        <div class="admin-item-title">${username}</div>
+                        <div class="admin-item-sub">${isAdmin ? 'Admin' : 'Usuário'}</div>
+                    </div>
+                `;
+                adminUsersList.appendChild(item);
+            });
+        }
+
+        function adminRenderMembros() {
+            if (!adminMembersList) return;
+            adminMembersList.innerHTML = '';
+
+            if (adminMembers.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'admin-item';
+                empty.innerHTML = '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhum membro cadastrado.</div>';
+                adminMembersList.appendChild(empty);
+                return;
+            }
+
+            adminMembers.forEach((m) => {
+                const item = document.createElement('div');
+                item.className = 'admin-item';
+                const id = Number(m && m.id);
+                const name = m && m.name ? String(m.name) : '';
+                const active = Boolean(m && m.active);
+
+                item.innerHTML = `
+                    <div style="min-width: 0;">
+                        <div class="admin-item-title">${name}</div>
+                        <div class="admin-item-sub">${active ? 'Ativo' : 'Inativo'}</div>
+                    </div>
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <label class="admin-toggle">
+                            <input type="checkbox" data-id="${id}" ${active ? 'checked' : ''}>
+                            Ativo
+                        </label>
+                        <span class="admin-action" data-edit-id="${id}">Editar</span>
+                    </div>
+                `;
+
+                adminMembersList.appendChild(item);
+            });
+
+            adminMembersList.querySelectorAll('input[type="checkbox"][data-id]').forEach((el) => {
+                el.addEventListener('change', async () => {
+                    const id = Number(el.getAttribute('data-id'));
+                    const active = Boolean(el.checked);
+                    await apiJson('/api/members', { method: 'PUT', body: JSON.stringify({ id, active }) });
+                    await adminCarregarMembros();
+                    adminRenderMembros();
+                });
+            });
+
+            adminMembersList.querySelectorAll('.admin-action[data-edit-id]').forEach((el) => {
+                el.addEventListener('click', () => {
+                    const id = Number(el.getAttribute('data-edit-id'));
+                    const member = adminMembers.find((x) => Number(x.id) === id);
+                    if (!member || !adminMemberName) return;
+                    adminMemberEditingId = id;
+                    adminMemberName.value = member.name || '';
+                    const label = adminCreateMemberBtn ? adminCreateMemberBtn.querySelector('span') : null;
+                    if (label) label.innerText = 'Salvar Alteração';
+                    adminMemberName.focus();
+                });
+            });
+        }
+
+        async function adminCriarUsuario() {
+            if (!adminNewUsername || !adminNewPassword) return;
+            const username = adminNewUsername.value.trim();
+            const password = adminNewPassword.value.trim();
+            const isAdmin = Boolean(adminNewIsAdmin && adminNewIsAdmin.checked);
+
+            if (!username || !password) {
+                alert('Preencha usuário e senha.');
+                return;
+            }
+
+            const result = await apiJson('/api/users', {
+                method: 'POST',
+                body: JSON.stringify({ username, password, isAdmin })
+            });
+
+            if (!result.ok || !result.data || !result.data.ok) {
+                alert('Erro ao criar usuário.');
+                return;
+            }
+
+            adminNewUsername.value = '';
+            adminNewPassword.value = '';
+            if (adminNewIsAdmin) adminNewIsAdmin.checked = false;
+
+            await adminCarregarUsuarios();
+            adminRenderUsuarios();
+        }
+
+        async function adminCriarMembro() {
+            if (!adminMemberName) return;
+            const name = adminMemberName.value.trim();
+            if (!name) {
+                alert('Preencha o nome do membro.');
+                return;
+            }
+
+            if (adminMemberEditingId !== null) {
+                const result = await apiJson('/api/members', {
+                    method: 'PUT',
+                    body: JSON.stringify({ id: adminMemberEditingId, name })
+                });
+                if (!result.ok || !result.data || !result.data.ok) {
+                    alert('Erro ao salvar membro.');
+                    return;
+                }
+            } else {
+                const result = await apiJson('/api/members', {
+                    method: 'POST',
+                    body: JSON.stringify({ name })
+                });
+                if (!result.ok || !result.data || !result.data.ok) {
+                    alert('Erro ao adicionar membro.');
+                    return;
+                }
+            }
+
+            adminMemberEditingId = null;
+            adminMemberName.value = '';
+            const label = adminCreateMemberBtn ? adminCreateMemberBtn.querySelector('span') : null;
+            if (label) label.innerText = 'Adicionar Membro';
+
+            await adminCarregarMembros();
+            adminRenderMembros();
+        }
+
+        async function verificarSessao() {
+            const result = await apiJson('/api/me', { method: 'GET' }).catch(() => ({ ok: false, data: null }));
+            currentUser = result && result.data && result.data.ok ? result.data.user : null;
+
+            const isLogged = Boolean(currentUser);
+            if (userNameText) userNameText.innerText = isLogged ? currentUser.username : 'Logado';
+
             if (isLogged) {
-                userBadge.style.display = 'flex';
-                headerLoginBtn.style.display = 'none';
+                if (userBadge) userBadge.style.display = 'flex';
+                if (headerLoginBtn) headerLoginBtn.style.display = 'none';
                 if (mainNav) mainNav.style.display = 'flex';
                 if (sendSmartBtn) sendSmartBtn.style.display = 'flex';
                 renderizarCronogramaCompleto();
+                await carregarRepertorio();
                 renderizarRepertorio();
+                if (navAdmin) navAdmin.style.display = currentUser && currentUser.isAdmin ? 'inline-block' : 'none';
+                if (currentUser && currentUser.isAdmin) {
+                    await adminCarregarUsuarios();
+                    await adminCarregarMembros();
+                    adminRenderUsuarios();
+                    adminRenderMembros();
+                }
             } else {
-                userBadge.style.display = 'none';
-                headerLoginBtn.style.display = 'block';
+                if (userBadge) userBadge.style.display = 'none';
+                if (headerLoginBtn) headerLoginBtn.style.display = 'block';
                 if (mainNav) mainNav.style.display = 'none';
                 if (sendSmartBtn) sendSmartBtn.style.display = 'none';
-                switchView('home'); // Garantir que deslogado volta para a home
+                if (navAdmin) navAdmin.style.display = 'none';
+                switchView('home');
             }
         }
 
@@ -1059,10 +1386,12 @@
             homeView.classList.remove('active');
             scheduleView.classList.remove('active');
             if (repertoireView) repertoireView.classList.remove('active');
+            if (adminView) adminView.classList.remove('active');
 
             navHome.classList.remove('active');
             navSchedule.classList.remove('active');
             if (navRepertoire) navRepertoire.classList.remove('active');
+            if (navAdmin) navAdmin.classList.remove('active');
 
             if (viewName === 'schedule') {
                 scheduleView.classList.add('active');
@@ -1071,6 +1400,11 @@
                 if (repertoireView) repertoireView.classList.add('active');
                 if (navRepertoire) navRepertoire.classList.add('active');
                 renderizarRepertorio();
+            } else if (viewName === 'admin') {
+                if (adminView) adminView.classList.add('active');
+                if (navAdmin) navAdmin.classList.add('active');
+                adminRenderUsuarios();
+                adminRenderMembros();
             } else {
                 homeView.classList.add('active');
                 navHome.classList.add('active');
@@ -1180,7 +1514,7 @@
                 smartSection.style.display = 'block';
                 
                 // Mostrar botão de envio apenas se estiver logado
-                const isLogged = localStorage.getItem('whatsminister_logged') === 'true';
+                const isLogged = Boolean(currentUser);
                 sendSmartBtn.style.display = isLogged ? 'flex' : 'none';
                 
                 // Sugestão de texto automático para o campo de mensagem
@@ -1270,7 +1604,7 @@
             if (mondayBadge) mondayBadge.style.display = 'none';
 
             // Mostrar botão de envio apenas se estiver logado
-            const isLogged = localStorage.getItem('whatsminister_logged') === 'true';
+            const isLogged = Boolean(currentUser);
             sendSmartBtn.style.display = isLogged ? 'flex' : 'none';
 
             sendSmartBtn.onclick = async () => {
