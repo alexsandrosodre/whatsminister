@@ -22,7 +22,7 @@ function initSql() {
 }
 
 function sql(strings, ...values) {
-  return initSql()(strings, ...values);
+  return initSql()(strings, ...values).then((rows) => ({ rows }));
 }
 
 async function ensureSchema() {
