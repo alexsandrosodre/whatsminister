@@ -7,7 +7,7 @@ module.exports = async (req, res) => {
 
   try {
     const body = await readJsonBody(req);
-    const username = String(body.username || '').trim();
+    const username = String(body.username || '').trim().toLowerCase();
     const password = String(body.password || '').trim();
 
     if (!username || !password) return sendJson(res, 400, { ok: false, error: 'missing_credentials' });

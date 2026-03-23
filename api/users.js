@@ -17,7 +17,7 @@ module.exports = async (req, res) => {
   if (req.method === 'POST') {
     try {
       const body = await readJsonBody(req);
-      const username = String(body.username || '').trim();
+      const username = String(body.username || '').trim().toLowerCase();
       const isAdmin = Boolean(body.isAdmin);
       if (!username) return sendJson(res, 400, { ok: false, error: 'missing_fields' });
 
