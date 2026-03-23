@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "commonjs",
   "engines": {
-    "node": "18.x"
+    "node": "24.x"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1"
