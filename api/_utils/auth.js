@@ -3,7 +3,7 @@ const { parseCookies, verifySessionToken } = require('./security');
 
 async function getUserByUsername(username) {
   await ensureSchema();
-  const result = await sql`SELECT id, username, is_admin FROM users WHERE username = ${username} LIMIT 1;`;
+  const result = await sql`SELECT id, username, is_admin, must_change_password FROM users WHERE username = ${username} LIMIT 1;`;
   return result.rows[0] || null;
 }
 
@@ -14,7 +14,7 @@ async function requireAuth(req) {
   if (!session) return null;
   const user = await getUserByUsername(session.username);
   if (!user) return null;
-  return { username: user.username, isAdmin: Boolean(user.is_admin) };
+  return { username: user.username, isAdmin: Boolean(user.is_admin), mustChangePassword: Boolean(user.must_change_password) };
 }
 
 async function requireAdmin(req) {

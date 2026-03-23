@@ -358,6 +358,25 @@
             backdrop-filter: blur(10px);
         }
 
+        #passwordOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(5, 10, 24, 0.95);
+            background-image: linear-gradient(rgba(5, 10, 24, 0.9), rgba(5, 10, 24, 0.9)), url('mins/minislogo.png');
+            background-size: cover;
+            background-position: center;
+            z-index: 2100;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
         .login-card {
             background-color: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(15px);
@@ -450,6 +469,14 @@
         .logout-btn {
             font-weight: 700;
             color: var(--accent-red);
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 11px;
+        }
+
+        .password-btn {
+            font-weight: 700;
+            color: var(--accent-blue);
             cursor: pointer;
             text-transform: uppercase;
             font-size: 11px;
@@ -699,12 +726,31 @@
         </div>
     </div>
 
+    <div id="passwordOverlay">
+        <div class="login-card">
+            <span id="closePasswordOverlay" class="close-login" onclick="togglePasswordOverlay(false)">&times;</span>
+            <div class="logo-text" style="font-size: 24px; margin-bottom: 5px;">Alterar <span>Senha</span></div>
+            <p id="passwordHint">Defina uma nova senha para continuar.</p>
+
+            <input type="password" id="currentPassword" class="login-input" placeholder="Senha atual">
+            <input type="password" id="newPassword" class="login-input" placeholder="Nova senha">
+            <input type="password" id="newPassword2" class="login-input" placeholder="Confirmar nova senha">
+
+            <button onclick="alterarSenha()" class="btn-send" style="padding: 12px;">
+                <span>Salvar Senha</span>
+            </button>
+
+            <p id="passwordError" style="color: var(--accent-red); margin-top: 15px; font-size: 12px; display: none;">Erro ao alterar a senha.</p>
+        </div>
+    </div>
+
     <header>
         <div class="logo-text">Ministério <span>AMAR</span></div>
         <p style="margin: 5px 0 0 0; font-size: 12px; opacity: 0.8;">Juntos até a Eternidade</p>
         
         <div id="userBadge" class="user-badge" style="display: none;">
             <span id="userNameText">Logado</span>
+            <span class="password-btn" onclick="togglePasswordOverlay(true)">Senha</span>
             <span class="logout-btn" onclick="fazerLogout()">Sair</span>
         </div>
         <button id="headerLoginBtn" class="header-login-btn" onclick="toggleLogin(true)">Entrar</button>
@@ -785,7 +831,7 @@
                     <label>Credenciais (Usuários)</label>
                     <div class="repertoire-form">
                         <input id="adminNewUsername" class="text-input" type="text" placeholder="Usuário">
-                        <input id="adminNewPassword" class="text-input" type="password" placeholder="Senha">
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.6);">Senha padrão: 123456 (obrigatório alterar no primeiro login)</div>
                         <label class="admin-toggle">
                             <input id="adminNewIsAdmin" type="checkbox">
                             Admin
@@ -844,6 +890,7 @@
         // Variáveis globais de elementos (inicializadas dentro do DOMContentLoaded)
         let messageArea, sendBtn, fileInput, preview, uploadLabel, smartSection, smartTitle, smartPreview, sendSmartBtn, mondayBadge, scalesGrid;
         let loginOverlay, loginUser, loginPass, loginError, userBadge, userNameText, fullScheduleSection, fullScheduleGrid, headerLoginBtn;
+        let passwordOverlay, closePasswordOverlay, passwordHint, passwordError, currentPasswordInput, newPasswordInput, newPassword2Input;
         let mainNav, homeView, scheduleView, repertoireView, adminView, navHome, navSchedule, navRepertoire, navAdmin;
         let repertoireName, repertoireLink, addRepertoireBtn, repertoireList;
         let currentUser = null;
@@ -852,7 +899,7 @@
         let adminUsers = [];
         let adminMembers = [];
         let adminMemberEditingId = null;
-        let adminNewUsername, adminNewPassword, adminNewIsAdmin, adminCreateUserBtn, adminUsersList;
+        let adminNewUsername, adminNewIsAdmin, adminCreateUserBtn, adminUsersList;
         let adminMemberName, adminCreateMemberBtn, adminMembersList;
 
         // Autenticação e dados persistentes agora usam API (/api) + banco na Vercel
@@ -920,6 +967,13 @@
             loginUser = document.getElementById('loginUser');
             loginPass = document.getElementById('loginPass');
             loginError = document.getElementById('loginError');
+            passwordOverlay = document.getElementById('passwordOverlay');
+            closePasswordOverlay = document.getElementById('closePasswordOverlay');
+            passwordHint = document.getElementById('passwordHint');
+            passwordError = document.getElementById('passwordError');
+            currentPasswordInput = document.getElementById('currentPassword');
+            newPasswordInput = document.getElementById('newPassword');
+            newPassword2Input = document.getElementById('newPassword2');
             userBadge = document.getElementById('userBadge');
             userNameText = document.getElementById('userNameText');
             fullScheduleSection = document.getElementById('fullScheduleSection');
@@ -941,7 +995,6 @@
              addRepertoireBtn = document.getElementById('addRepertoireBtn');
              repertoireList = document.getElementById('repertoireList');
              adminNewUsername = document.getElementById('adminNewUsername');
-             adminNewPassword = document.getElementById('adminNewPassword');
              adminNewIsAdmin = document.getElementById('adminNewIsAdmin');
              adminCreateUserBtn = document.getElementById('adminCreateUserBtn');
              adminUsersList = document.getElementById('adminUsersList');
@@ -1057,12 +1110,65 @@
 
             toggleLogin(false);
             await verificarSessao();
+            if (currentUser && currentUser.mustChangePassword) {
+                togglePasswordOverlay(true, true);
+            }
         }
 
         async function fazerLogout() {
             await fetch('/api/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
             currentUser = null;
             switchView('home');
+            await verificarSessao();
+        }
+
+        function togglePasswordOverlay(show, force = false) {
+            if (!passwordOverlay) return;
+            if (!currentPasswordInput || !newPasswordInput || !newPassword2Input || !passwordError || !passwordHint) return;
+
+            passwordError.style.display = 'none';
+            passwordOverlay.style.display = show ? 'flex' : 'none';
+
+            if (show) {
+                currentPasswordInput.value = '';
+                newPasswordInput.value = '';
+                newPassword2Input.value = '';
+                if (closePasswordOverlay) closePasswordOverlay.style.display = force ? 'none' : 'block';
+                passwordHint.innerText = force ? 'Defina uma nova senha para continuar.' : 'Altere sua senha quando quiser.';
+                currentPasswordInput.focus();
+            }
+        }
+
+        async function alterarSenha() {
+            if (!currentPasswordInput || !newPasswordInput || !newPassword2Input || !passwordError) return;
+            const currentPassword = currentPasswordInput.value.trim();
+            const newPassword = newPasswordInput.value.trim();
+            const newPassword2 = newPassword2Input.value.trim();
+
+            if (!currentPassword || !newPassword || !newPassword2) {
+                passwordError.innerText = 'Preencha todos os campos.';
+                passwordError.style.display = 'block';
+                return;
+            }
+
+            if (newPassword !== newPassword2) {
+                passwordError.innerText = 'A confirmação não confere.';
+                passwordError.style.display = 'block';
+                return;
+            }
+
+            const result = await apiJson('/api/change-password', {
+                method: 'POST',
+                body: JSON.stringify({ currentPassword, newPassword })
+            });
+
+            if (!result.ok || !result.data || !result.data.ok) {
+                passwordError.innerText = 'Erro ao alterar a senha.';
+                passwordError.style.display = 'block';
+                return;
+            }
+
+            togglePasswordOverlay(false);
             await verificarSessao();
         }
 
@@ -1217,13 +1323,32 @@
                 item.className = 'admin-item';
                 const username = u && u.username ? String(u.username) : '';
                 const isAdmin = Boolean(u && (u.is_admin ?? u.isAdmin));
+                const mustChange = Boolean(u && (u.must_change_password ?? u.mustChangePassword));
+                const id = Number(u && u.id);
                 item.innerHTML = `
                     <div style="min-width: 0;">
                         <div class="admin-item-title">${username}</div>
-                        <div class="admin-item-sub">${isAdmin ? 'Admin' : 'Usuário'}</div>
+                        <div class="admin-item-sub">${isAdmin ? 'Admin' : 'Usuário'}${mustChange ? ' • Trocar senha' : ''}</div>
+                    </div>
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <span class="admin-action" data-reset-user-id="${id}">Reset senha</span>
                     </div>
                 `;
                 adminUsersList.appendChild(item);
+            });
+
+            adminUsersList.querySelectorAll('.admin-action[data-reset-user-id]').forEach((el) => {
+                el.addEventListener('click', async () => {
+                    const id = Number(el.getAttribute('data-reset-user-id'));
+                    if (!Number.isFinite(id)) return;
+                    const result = await apiJson('/api/users', { method: 'PUT', body: JSON.stringify({ id, resetPassword: true }) });
+                    if (!result.ok || !result.data || !result.data.ok) {
+                        alert('Erro ao resetar a senha.');
+                        return;
+                    }
+                    await adminCarregarUsuarios();
+                    adminRenderUsuarios();
+                });
             });
         }
 
@@ -1288,19 +1413,18 @@
         }
 
         async function adminCriarUsuario() {
-            if (!adminNewUsername || !adminNewPassword) return;
+            if (!adminNewUsername) return;
             const username = adminNewUsername.value.trim();
-            const password = adminNewPassword.value.trim();
             const isAdmin = Boolean(adminNewIsAdmin && adminNewIsAdmin.checked);
 
-            if (!username || !password) {
-                alert('Preencha usuário e senha.');
+            if (!username) {
+                alert('Preencha o usuário.');
                 return;
             }
 
             const result = await apiJson('/api/users', {
                 method: 'POST',
-                body: JSON.stringify({ username, password, isAdmin })
+                body: JSON.stringify({ username, isAdmin })
             });
 
             if (!result.ok || !result.data || !result.data.ok) {
@@ -1309,7 +1433,6 @@
             }
 
             adminNewUsername.value = '';
-            adminNewPassword.value = '';
             if (adminNewIsAdmin) adminNewIsAdmin.checked = false;
 
             await adminCarregarUsuarios();
@@ -1375,12 +1498,18 @@
                     adminRenderUsuarios();
                     adminRenderMembros();
                 }
+                if (currentUser && currentUser.mustChangePassword) {
+                    togglePasswordOverlay(true, true);
+                } else {
+                    togglePasswordOverlay(false);
+                }
             } else {
                 if (userBadge) userBadge.style.display = 'none';
                 if (headerLoginBtn) headerLoginBtn.style.display = 'block';
                 if (mainNav) mainNav.style.display = 'none';
                 if (sendSmartBtn) sendSmartBtn.style.display = 'none';
                 if (navAdmin) navAdmin.style.display = 'none';
+                togglePasswordOverlay(false);
                 switchView('home');
             }
         }

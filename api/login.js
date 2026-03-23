@@ -20,21 +20,22 @@ module.exports = async (req, res) => {
     if (adminUser && adminPass && username === adminUser && password === adminPass) {
       const { salt, hash } = hashPassword(password);
       const upserted = await sql`
-        INSERT INTO users (username, password_salt, password_hash, is_admin)
-        VALUES (${username}, ${salt}, ${hash}, TRUE)
+        INSERT INTO users (username, password_salt, password_hash, is_admin, must_change_password)
+        VALUES (${username}, ${salt}, ${hash}, TRUE, FALSE)
         ON CONFLICT (username) DO UPDATE SET
           password_salt = ${salt},
           password_hash = ${hash},
-          is_admin = TRUE
-        RETURNING username, is_admin;
+          is_admin = TRUE,
+          must_change_password = FALSE
+        RETURNING username, is_admin, must_change_password;
       `;
       const upsertedUser = upserted.rows[0];
       const token = createSessionToken({ username: upsertedUser.username, isAdmin: true });
       setCookie(res, 'wm_session', token, { httpOnly: true, sameSite: 'Lax', secure: isSecureEnv(), maxAge: 60 * 60 * 24 * 7 });
-      return sendJson(res, 200, { ok: true, user: { username: upsertedUser.username, isAdmin: true } });
+      return sendJson(res, 200, { ok: true, user: { username: upsertedUser.username, isAdmin: true, mustChangePassword: false } });
     }
 
-    const existing = await sql`SELECT id, username, password_salt, password_hash, is_admin FROM users WHERE username = ${username} LIMIT 1;`;
+    const existing = await sql`SELECT id, username, password_salt, password_hash, is_admin, must_change_password FROM users WHERE username = ${username} LIMIT 1;`;
     const user = existing.rows[0];
 
     if (!user) {
@@ -47,7 +48,7 @@ module.exports = async (req, res) => {
     const isAdmin = Boolean(user.is_admin);
     const token = createSessionToken({ username: user.username, isAdmin });
     setCookie(res, 'wm_session', token, { httpOnly: true, sameSite: 'Lax', secure: isSecureEnv(), maxAge: 60 * 60 * 24 * 7 });
-    return sendJson(res, 200, { ok: true, user: { username: user.username, isAdmin } });
+    return sendJson(res, 200, { ok: true, user: { username: user.username, isAdmin, mustChangePassword: Boolean(user.must_change_password) } });
   } catch (e) {
     return sendJson(res, 500, { ok: false, error: 'server_error', detail: String(e && e.message ? e.message : e) });
   }
