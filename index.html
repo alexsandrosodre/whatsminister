@@ -679,6 +679,14 @@
             text-transform: uppercase;
         }
 
+        .repertoire-toggle-lyrics {
+            color: var(--accent-blue);
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
         .view-section {
             display: none;
             width: 100%;
@@ -898,6 +906,7 @@
         let currentUser = null;
         let repertoireItems = [];
         let repertoireEditingId = null;
+        let repertoireLyricsExpandedIds = new Set();
         let adminUsers = [];
         let adminMembers = [];
         let adminMemberEditingId = null;
@@ -1311,14 +1320,16 @@
                 const safeLyrics = (item && item.lyrics) ? String(item.lyrics) : '';
                 const safeId = Number(item && item.id);
                 const href = safeHttpUrl(safeLink);
+                const isExpanded = Number.isFinite(safeId) && repertoireLyricsExpandedIds.has(safeId);
 
                 card.innerHTML = `
                     <div class="repertoire-item-title">${escapeHtml(safeNome)}</div>
                     <div class="repertoire-item-actions">
                         ${href ? `<a class="repertoire-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(href)}</a>` : `<span class="repertoire-link"></span>`}
+                        ${safeLyrics ? `<span class="repertoire-toggle-lyrics" data-id="${safeId}">${isExpanded ? 'Ocultar letra' : 'Exibir letra'}</span>` : ``}
                         <span class="repertoire-edit" data-id="${safeId}">Editar</span>
                     </div>
-                    ${safeLyrics ? `<div style="margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.75); white-space: pre-wrap;">${escapeHtml(safeLyrics)}</div>` : ``}
+                    ${safeLyrics ? `<div style="margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.75); white-space: pre-wrap; display: ${isExpanded ? 'block' : 'none'};">${escapeHtml(safeLyrics)}</div>` : ``}
                 `;
 
                 repertoireList.appendChild(card);
@@ -1328,6 +1339,20 @@
                 el.addEventListener('click', () => {
                     const id = Number(el.getAttribute('data-id'));
                     if (!Number.isNaN(id)) iniciarEdicaoRepertorio(id);
+                });
+            });
+
+            repertoireList.querySelectorAll('.repertoire-toggle-lyrics').forEach((el) => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = Number(el.getAttribute('data-id'));
+                    if (!Number.isFinite(id)) return;
+                    if (repertoireLyricsExpandedIds.has(id)) {
+                        repertoireLyricsExpandedIds.delete(id);
+                    } else {
+                        repertoireLyricsExpandedIds.add(id);
+                    }
+                    renderizarRepertorio();
                 });
             });
         }
