@@ -9,7 +9,7 @@ module.exports = async (req, res) => {
   await ensureSchema();
 
   if (req.method === 'GET') {
-    const result = await sql`SELECT id, name, link, created_at, updated_at FROM repertoire ORDER BY id DESC;`;
+    const result = await sql`SELECT id, name, link, lyrics, created_at, updated_at FROM repertoire ORDER BY id DESC;`;
     return sendJson(res, 200, { ok: true, items: result.rows });
   }
 
@@ -18,11 +18,12 @@ module.exports = async (req, res) => {
       const body = await readJsonBody(req);
       const name = String(body.name || '').trim();
       const link = String(body.link || '').trim();
+      const lyrics = typeof body.lyrics === 'string' ? body.lyrics.trim() : '';
       if (!name || !link) return sendJson(res, 400, { ok: false, error: 'missing_fields' });
       const created = await sql`
-        INSERT INTO repertoire (name, link)
-        VALUES (${name}, ${link})
-        RETURNING id, name, link, created_at, updated_at;
+        INSERT INTO repertoire (name, link, lyrics)
+        VALUES (${name}, ${link}, ${lyrics})
+        RETURNING id, name, link, lyrics, created_at, updated_at;
       `;
       return sendJson(res, 200, { ok: true, item: created.rows[0] });
     } catch {
@@ -36,6 +37,7 @@ module.exports = async (req, res) => {
       const id = Number(body.id);
       const name = typeof body.name === 'string' ? body.name.trim() : null;
       const link = typeof body.link === 'string' ? body.link.trim() : null;
+      const lyrics = typeof body.lyrics === 'string' ? body.lyrics.trim() : null;
       if (!Number.isFinite(id)) return sendJson(res, 400, { ok: false, error: 'missing_id' });
 
       const updated = await sql`
@@ -43,9 +45,10 @@ module.exports = async (req, res) => {
         SET
           name = COALESCE(${name}, name),
           link = COALESCE(${link}, link),
+          lyrics = COALESCE(${lyrics}, lyrics),
           updated_at = NOW()
         WHERE id = ${id}
-        RETURNING id, name, link, created_at, updated_at;
+        RETURNING id, name, link, lyrics, created_at, updated_at;
       `;
       if (updated.rows.length === 0) return sendJson(res, 404, { ok: false, error: 'not_found' });
       return sendJson(res, 200, { ok: true, item: updated.rows[0] });
@@ -56,4 +59,3 @@ module.exports = async (req, res) => {
 
   return methodNotAllowed(res, ['GET', 'POST', 'PUT']);
 };
-

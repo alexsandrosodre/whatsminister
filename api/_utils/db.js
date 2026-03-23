@@ -54,10 +54,13 @@ async function ensureSchema() {
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       link TEXT NOT NULL,
+      lyrics TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `;
+
+  await sql`ALTER TABLE repertoire ADD COLUMN IF NOT EXISTS lyrics TEXT NOT NULL DEFAULT '';`;
 }
 
 module.exports = { sql, ensureSchema };

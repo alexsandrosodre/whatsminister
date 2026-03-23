@@ -813,6 +813,7 @@
                 <div class="repertoire-form">
                     <input id="repertoireName" class="text-input" type="text" placeholder="Nome da música">
                     <input id="repertoireLink" class="text-input" type="url" placeholder="Link (YouTube/Drive/Spotify)">
+                    <textarea id="repertoireLyrics" class="text-input" placeholder="Letra da música (opcional)" style="min-height: 120px; resize: vertical;"></textarea>
                     <button id="addRepertoireBtn" class="btn-send" style="padding: 10px; font-size: 14px;">
                         <span>Adicionar Música</span>
                     </button>
@@ -821,6 +822,7 @@
 
             <div id="repertoireSection" class="panel-card">
                 <label>Músicas Cadastradas</label>
+                <input id="repertoireSearch" class="text-input" type="text" placeholder="Buscar por nome ou letra" style="margin-top: 10px;">
                 <div id="repertoireList" class="repertoire-list"></div>
             </div>
         </div>
@@ -892,7 +894,7 @@
         let loginOverlay, loginUser, loginPass, loginError, userBadge, userNameText, fullScheduleSection, fullScheduleGrid, headerLoginBtn;
         let passwordOverlay, closePasswordOverlay, passwordHint, passwordError, currentPasswordInput, newPasswordInput, newPassword2Input;
         let mainNav, homeView, scheduleView, repertoireView, adminView, navHome, navSchedule, navRepertoire, navAdmin;
-        let repertoireName, repertoireLink, addRepertoireBtn, repertoireList;
+        let repertoireName, repertoireLink, repertoireLyrics, repertoireSearch, addRepertoireBtn, repertoireList;
         let currentUser = null;
         let repertoireItems = [];
         let repertoireEditingId = null;
@@ -992,6 +994,8 @@
              navAdmin = document.getElementById('navAdmin');
              repertoireName = document.getElementById('repertoireName');
              repertoireLink = document.getElementById('repertoireLink');
+             repertoireLyrics = document.getElementById('repertoireLyrics');
+             repertoireSearch = document.getElementById('repertoireSearch');
              addRepertoireBtn = document.getElementById('addRepertoireBtn');
              repertoireList = document.getElementById('repertoireList');
              adminNewUsername = document.getElementById('adminNewUsername');
@@ -1039,6 +1043,10 @@
                         adicionarRepertorio();
                     }
                 });
+            }
+
+            if (repertoireSearch) {
+                repertoireSearch.addEventListener('input', renderizarRepertorio);
             }
 
             renderizarRepertorio();
@@ -1184,6 +1192,25 @@
             }
         }
 
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function safeHttpUrl(value) {
+            try {
+                const u = new URL(String(value));
+                if (u.protocol === 'http:' || u.protocol === 'https:') return u.toString();
+                return '';
+            } catch {
+                return '';
+            }
+        }
+
         async function carregarRepertorio() {
             const result = await apiJson('/api/repertoire', { method: 'GET' });
             if (!result.ok || !result.data || !result.data.ok) {
@@ -1197,6 +1224,7 @@
             if (!repertoireName || !repertoireLink) return;
             const nome = repertoireName.value.trim();
             const link = normalizarLink(repertoireLink.value);
+            const lyrics = repertoireLyrics ? repertoireLyrics.value.trim() : '';
 
             if (!nome || !link) {
                 alert('Preencha o nome e um link válido.');
@@ -1206,7 +1234,7 @@
             if (repertoireEditingId !== null) {
                 const result = await apiJson('/api/repertoire', {
                     method: 'PUT',
-                    body: JSON.stringify({ id: repertoireEditingId, name: nome, link })
+                    body: JSON.stringify({ id: repertoireEditingId, name: nome, link, lyrics })
                 });
                 if (!result.ok || !result.data || !result.data.ok) {
                     alert('Erro ao salvar a alteração.');
@@ -1215,7 +1243,7 @@
             } else {
                 const result = await apiJson('/api/repertoire', {
                     method: 'POST',
-                    body: JSON.stringify({ name: nome, link })
+                    body: JSON.stringify({ name: nome, link, lyrics })
                 });
                 if (!result.ok || !result.data || !result.data.ok) {
                     alert('Erro ao adicionar música.');
@@ -1235,6 +1263,7 @@
             repertoireEditingId = Number(item.id);
             repertoireName.value = item.name || '';
             repertoireLink.value = item.link || '';
+            if (repertoireLyrics) repertoireLyrics.value = item.lyrics || '';
 
             const label = addRepertoireBtn ? addRepertoireBtn.querySelector('span') : null;
             if (label) label.innerText = 'Salvar Alteração';
@@ -1245,36 +1274,51 @@
             repertoireEditingId = null;
             if (repertoireName) repertoireName.value = '';
             if (repertoireLink) repertoireLink.value = '';
+            if (repertoireLyrics) repertoireLyrics.value = '';
             const label = addRepertoireBtn ? addRepertoireBtn.querySelector('span') : null;
             if (label) label.innerText = 'Adicionar Música';
         }
 
         function renderizarRepertorio() {
             if (!repertoireList) return;
+            const term = repertoireSearch ? repertoireSearch.value.trim().toLowerCase() : '';
+            const filtered = term
+                ? repertoireItems.filter((item) => {
+                    const name = item && item.name ? String(item.name).toLowerCase() : '';
+                    const lyrics = item && item.lyrics ? String(item.lyrics).toLowerCase() : '';
+                    const link = item && item.link ? String(item.link).toLowerCase() : '';
+                    return name.includes(term) || lyrics.includes(term) || link.includes(term);
+                })
+                : repertoireItems;
             repertoireList.innerHTML = '';
 
-            if (repertoireItems.length === 0) {
+            if (filtered.length === 0) {
                 const empty = document.createElement('div');
                 empty.className = 'repertoire-item';
-                empty.innerHTML = '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhuma música cadastrada ainda.</div>';
+                empty.innerHTML = term
+                    ? '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhum resultado para a busca.</div>'
+                    : '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhuma música cadastrada ainda.</div>';
                 repertoireList.appendChild(empty);
                 return;
             }
 
-            repertoireItems.forEach((item) => {
+            filtered.forEach((item) => {
                 const card = document.createElement('div');
                 card.className = 'repertoire-item';
 
                 const safeNome = (item && item.name) ? String(item.name) : 'Sem nome';
                 const safeLink = (item && item.link) ? String(item.link) : '';
+                const safeLyrics = (item && item.lyrics) ? String(item.lyrics) : '';
                 const safeId = Number(item && item.id);
+                const href = safeHttpUrl(safeLink);
 
                 card.innerHTML = `
-                    <div class="repertoire-item-title">${safeNome}</div>
+                    <div class="repertoire-item-title">${escapeHtml(safeNome)}</div>
                     <div class="repertoire-item-actions">
-                        <a class="repertoire-link" href="${safeLink}" target="_blank" rel="noopener noreferrer">${safeLink}</a>
+                        ${href ? `<a class="repertoire-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(href)}</a>` : `<span class="repertoire-link"></span>`}
                         <span class="repertoire-edit" data-id="${safeId}">Editar</span>
                     </div>
+                    ${safeLyrics ? `<div style="margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.75); white-space: pre-wrap;">${escapeHtml(safeLyrics)}</div>` : ``}
                 `;
 
                 repertoireList.appendChild(card);
