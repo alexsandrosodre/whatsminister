@@ -654,60 +654,72 @@ async function handleChatGroups(req, res) {
   }
 
   if (req.method === 'POST') {
-    const body = await readJsonBody(req);
-    const name = String(body.name || '').trim();
-    if (!name) return sendJson(res, 400, { ok: false, error: 'missing_name' });
-    const me = String(user.username);
+    try {
+      const body = await readJsonBody(req);
+      const name = String(body.name || '').trim();
+      if (!name) return sendJson(res, 400, { ok: false, error: 'missing_name' });
+      const me = String(user.username);
 
-    const members = normalizeList(body.members);
-    if (!members.includes(me)) members.push(me);
+      const members = normalizeList(body.members).map((u) => u.toLowerCase());
+      if (!members.includes(me.toLowerCase())) members.push(me.toLowerCase());
 
-    const usersResult = await sql`SELECT username FROM users WHERE username = ANY(${members});`;
-    const existing = new Set(usersResult.rows.map((r) => String(r.username)));
-    const finalMembers = members.filter((u) => existing.has(u));
-    if (finalMembers.length < 2) return sendJson(res, 400, { ok: false, error: 'not_enough_members' });
+      const usersResult = await sql`SELECT username FROM users WHERE LOWER(username) = ANY(${members});`;
+      const existing = new Set(usersResult.rows.map((r) => String(r.username).toLowerCase()));
+      const finalMembers = members.filter((u) => existing.has(u));
+      if (finalMembers.length < 2) return sendJson(res, 400, { ok: false, error: 'not_enough_members' });
 
-    const created = await sql`
-      INSERT INTO chat_threads (type, name, created_by)
-      VALUES ('group', ${name}, ${me})
-      RETURNING id;
-    `;
-    const threadId = Number(created.rows[0].id);
+      const created = await sql`
+        INSERT INTO chat_threads (type, name, created_by)
+        VALUES ('group', ${name}, ${me})
+        RETURNING id;
+      `;
+      const threadId = Number(created.rows[0].id);
 
-    await sql`
-      INSERT INTO chat_thread_members (thread_id, username)
-      SELECT ${threadId}, u FROM unnest(${finalMembers}) AS u
-      ON CONFLICT DO NOTHING;
-    `;
+      for (const username of finalMembers) {
+        await sql`
+          INSERT INTO chat_thread_members (thread_id, username)
+          VALUES (${threadId}, ${username})
+          ON CONFLICT DO NOTHING;
+        `;
+      }
 
-    return sendJson(res, 200, { ok: true, threadId });
+      return sendJson(res, 200, { ok: true, threadId });
+    } catch (e) {
+      return sendJson(res, 500, { ok: false, error: 'server_error', detail: String(e && e.message ? e.message : e) });
+    }
   }
 
   if (req.method === 'PUT') {
-    const body = await readJsonBody(req);
-    const threadId = Number(body.threadId);
-    if (!Number.isFinite(threadId) || threadId <= 0) return sendJson(res, 400, { ok: false, error: 'missing_thread_id' });
-    const me = String(user.username);
+    try {
+      const body = await readJsonBody(req);
+      const threadId = Number(body.threadId);
+      if (!Number.isFinite(threadId) || threadId <= 0) return sendJson(res, 400, { ok: false, error: 'missing_thread_id' });
+      const me = String(user.username);
 
-    const existsGroup = await sql`SELECT id FROM chat_threads WHERE id = ${Math.trunc(threadId)} AND type = 'group' LIMIT 1;`;
-    if (!existsGroup.rows[0]) return sendJson(res, 404, { ok: false, error: 'group_not_found' });
+      const existsGroup = await sql`SELECT id FROM chat_threads WHERE id = ${Math.trunc(threadId)} AND type = 'group' LIMIT 1;`;
+      if (!existsGroup.rows[0]) return sendJson(res, 404, { ok: false, error: 'group_not_found' });
 
-    const members = normalizeList(body.members);
-    if (!members.includes(me)) members.push(me);
+      const members = normalizeList(body.members).map((u) => u.toLowerCase());
+      if (!members.includes(me.toLowerCase())) members.push(me.toLowerCase());
 
-    const usersResult = await sql`SELECT username FROM users WHERE username = ANY(${members});`;
-    const existing = new Set(usersResult.rows.map((r) => String(r.username)));
-    const finalMembers = members.filter((u) => existing.has(u));
-    if (finalMembers.length < 2) return sendJson(res, 400, { ok: false, error: 'not_enough_members' });
+      const usersResult = await sql`SELECT username FROM users WHERE LOWER(username) = ANY(${members});`;
+      const existing = new Set(usersResult.rows.map((r) => String(r.username).toLowerCase()));
+      const finalMembers = members.filter((u) => existing.has(u));
+      if (finalMembers.length < 2) return sendJson(res, 400, { ok: false, error: 'not_enough_members' });
 
-    await sql`DELETE FROM chat_thread_members WHERE thread_id = ${Math.trunc(threadId)};`;
-    await sql`
-      INSERT INTO chat_thread_members (thread_id, username)
-      SELECT ${Math.trunc(threadId)}, u FROM unnest(${finalMembers}) AS u
-      ON CONFLICT DO NOTHING;
-    `;
+      await sql`DELETE FROM chat_thread_members WHERE thread_id = ${Math.trunc(threadId)};`;
+      for (const username of finalMembers) {
+        await sql`
+          INSERT INTO chat_thread_members (thread_id, username)
+          VALUES (${Math.trunc(threadId)}, ${username})
+          ON CONFLICT DO NOTHING;
+        `;
+      }
 
-    return sendJson(res, 200, { ok: true });
+      return sendJson(res, 200, { ok: true });
+    } catch (e) {
+      return sendJson(res, 500, { ok: false, error: 'server_error', detail: String(e && e.message ? e.message : e) });
+    }
   }
 
   return methodNotAllowed(res, ['GET', 'POST', 'PUT']);
