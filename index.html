@@ -851,6 +851,11 @@
                 <span class="close-login" onclick="closeLyricsModal()">&times;</span>
             </div>
             <div id="lyricsModalBody"></div>
+            <div style="display:flex; justify-content:flex-end;">
+                <button class="btn-send" style="padding: 10px; font-size: 14px;" onclick="closeLyricsModal()">
+                    <span>Ocultar</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -996,6 +1001,10 @@
                     </div>
                     <div id="adminUsersList" class="admin-list"></div>
                     <div id="adminUserPhotoPreview" style="display:none; margin-top: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); border-radius: 12px; padding: 12px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom: 10px;">
+                            <div style="font-weight: 800;">Foto do usuário</div>
+                            <span id="adminHideUserPhotoBtn" class="admin-action">Ocultar</span>
+                        </div>
                         <div style="display:flex; gap:12px; align-items:center;">
                             <div style="width:48px; height:48px; border-radius:50%; overflow:hidden; background: rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center;">
                                 <img id="adminUserPhotoImg" alt="Foto do usuário" style="width:100%; height:100%; object-fit:cover; display:none;">
@@ -1204,6 +1213,7 @@
              adminUserPhotoImg = document.getElementById('adminUserPhotoImg');
              adminUserPhotoInitial = document.getElementById('adminUserPhotoInitial');
              adminUserPhotoName = document.getElementById('adminUserPhotoName');
+             const adminHideUserPhotoBtn = document.getElementById('adminHideUserPhotoBtn');
              adminMemberName = document.getElementById('adminMemberName');
              adminCreateMemberBtn = document.getElementById('adminCreateMemberBtn');
              adminMembersList = document.getElementById('adminMembersList');
@@ -1309,6 +1319,21 @@
 
             if (adminInstallBtn) {
                 adminInstallBtn.addEventListener('click', instalarPwa);
+            }
+
+            if (adminHideUserPhotoBtn) {
+                adminHideUserPhotoBtn.addEventListener('click', () => {
+                    if (adminUserPhotoPreview) adminUserPhotoPreview.style.display = 'none';
+                    if (adminUserPhotoImg) {
+                        adminUserPhotoImg.removeAttribute('src');
+                        adminUserPhotoImg.style.display = 'none';
+                    }
+                    if (adminUserPhotoInitial) {
+                        adminUserPhotoInitial.style.display = 'inline';
+                        adminUserPhotoInitial.innerText = '?';
+                    }
+                    if (adminUserPhotoName) adminUserPhotoName.innerText = '';
+                });
             }
 
             updateAdminInstallUi();
