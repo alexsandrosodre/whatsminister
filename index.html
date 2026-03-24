@@ -920,11 +920,19 @@
             display: none;
         }
 
+        body.chat-only .footer-info {
+            display: none;
+        }
+
         body.chat-only .container {
             max-width: 100%;
             padding: 0;
             height: 100vh;
             gap: 0;
+        }
+
+        body.chat-only #chatView.view-section.active {
+            display: block;
         }
 
         body.chat-only #chatView .panel-card {
