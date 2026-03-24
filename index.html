@@ -386,25 +386,6 @@
             backdrop-filter: blur(10px);
         }
 
-        #chatOverlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(5, 10, 24, 0.95);
-            background-image: linear-gradient(rgba(5, 10, 24, 0.9), rgba(5, 10, 24, 0.9)), url('mins/minislogo.png');
-            background-size: cover;
-            background-position: center;
-            z-index: 2150;
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-        }
-
         #lyricsModal {
             position: fixed;
             top: 0;
@@ -985,18 +966,6 @@
         </div>
     </div>
 
-    <div id="chatOverlay" style="display:none;">
-        <div class="login-card" style="max-width: 520px; width: calc(100% - 40px);">
-            <span id="chatOverlayClose" class="close-login">&times;</span>
-            <div id="chatOverlayTitle" class="logo-text" style="font-size: 18px; margin-bottom: 5px;">Contatos</div>
-            <input id="chatOverlayName" type="text" class="login-input" placeholder="Nome do grupo" style="display:none;">
-            <div id="chatOverlayList" style="margin-top: 10px; max-height: 50vh; overflow-y: auto;"></div>
-            <button id="chatOverlaySave" class="btn-send" style="padding: 12px; margin-top: 12px;">
-                <span>Abrir</span>
-            </button>
-        </div>
-    </div>
-
     <div id="lyricsModal">
         <div class="lyrics-modal-card">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
@@ -1110,17 +1079,6 @@
         <div id="chatView" class="view-section">
             <div class="panel-card" style="padding: 12px;">
                 <label>Mensagem</label>
-                <div style="margin-top: 10px; display:flex; gap:10px; align-items:center;">
-                    <select id="chatThreadSelect" class="text-input" style="height: 44px; padding: 10px 12px;">
-                        <option value="">Carregando...</option>
-                    </select>
-                    <button id="chatNewDmBtn" class="btn-send chat-send-btn" style="padding: 10px 12px;">
-                        <span>Contatos</span>
-                    </button>
-                    <button id="chatNewGroupBtn" class="btn-send chat-send-btn" style="padding: 10px 12px; display:none;">
-                        <span>Grupo</span>
-                    </button>
-                </div>
                 <div id="chatList" style="margin-top: 10px; height: 55vh; overflow-y: auto; display:flex; flex-direction:column; gap:10px; padding-right: 6px;"></div>
                 <div class="chat-composer">
                     <textarea id="chatInput" class="text-input" placeholder="Digite uma mensagem..."></textarea>
@@ -1270,8 +1228,7 @@
         let passwordOverlay, closePasswordOverlay, passwordHint, passwordError, currentPasswordInput, newPasswordInput, newPassword2Input;
         let mainNav, homeView, scheduleView, repertoireView, chatView, profileView, adminView, navHome, navSchedule, navRepertoire, navChat, navChatBadge, navProfile, navAdmin;
         let repertoireName, repertoireLink, repertoireLyrics, repertoireSearch, addRepertoireBtn, repertoireList;
-        let chatList, chatInput, chatSendBtn, chatThreadSelect, chatNewDmBtn, chatNewGroupBtn;
-        let chatOverlay, chatOverlayTitle, chatOverlayClose, chatOverlayName, chatOverlayList, chatOverlaySave;
+        let chatList, chatInput, chatSendBtn;
         let profilePhotoInput, profilePhotoPreview, profilePhotoPlaceholder, profileSavePhotoBtn, profileRemovePhotoBtn, profilePhotoMsg, profileUsername;
         let profilePhotoDraft = '';
         let lyricsModal, lyricsModalTitle, lyricsModalBody;
@@ -1279,8 +1236,6 @@
         let repertoireItems = [];
         let repertoireEditingId = null;
         let repertoireLyricsExpandedIds = new Set();
-        let chatThreads = [];
-        let chatCurrentThreadId = 0;
         let chatParticipants = [];
         let chatMessages = [];
         let chatLastId = 0;
@@ -1406,15 +1361,6 @@
              chatList = document.getElementById('chatList');
              chatInput = document.getElementById('chatInput');
              chatSendBtn = document.getElementById('chatSendBtn');
-             chatThreadSelect = document.getElementById('chatThreadSelect');
-             chatNewDmBtn = document.getElementById('chatNewDmBtn');
-             chatNewGroupBtn = document.getElementById('chatNewGroupBtn');
-             chatOverlay = document.getElementById('chatOverlay');
-             chatOverlayTitle = document.getElementById('chatOverlayTitle');
-             chatOverlayClose = document.getElementById('chatOverlayClose');
-             chatOverlayName = document.getElementById('chatOverlayName');
-             chatOverlayList = document.getElementById('chatOverlayList');
-             chatOverlaySave = document.getElementById('chatOverlaySave');
              profilePhotoInput = document.getElementById('profilePhotoInput');
              profilePhotoPreview = document.getElementById('profilePhotoPreview');
              profilePhotoPlaceholder = document.getElementById('profilePhotoPlaceholder');
@@ -1587,25 +1533,6 @@
                     if (nearBottom && isChatActive() && chatUnreadCount > 0) {
                         await marcarChatLido();
                     }
-                });
-            }
-            if (chatThreadSelect) {
-                chatThreadSelect.addEventListener('change', () => {
-                    selecionarThread(chatThreadSelect.value);
-                });
-            }
-            if (chatNewDmBtn) {
-                chatNewDmBtn.addEventListener('click', abrirOverlayContatos);
-            }
-            if (chatNewGroupBtn) {
-                chatNewGroupBtn.addEventListener('click', abrirOverlayGrupo);
-            }
-            if (chatOverlayClose) {
-                chatOverlayClose.addEventListener('click', () => toggleChatOverlay(false));
-            }
-            if (chatOverlay) {
-                chatOverlay.addEventListener('click', (e) => {
-                    if (e && e.target === chatOverlay) toggleChatOverlay(false);
                 });
             }
 
@@ -2070,60 +1997,20 @@
         }
 
         async function marcarChatLido() {
-            if (!chatLastId || !chatCurrentThreadId) return;
-            await apiJson('/api/chat-read', { method: 'POST', body: JSON.stringify({ threadId: chatCurrentThreadId, lastId: chatLastId }) });
-            await carregarChatThreads({ keepSelection: true });
-        }
-
-        function renderChatThreadsSelect() {
-            if (!chatThreadSelect) return;
-            chatThreadSelect.innerHTML = '';
-            chatThreads.forEach((t) => {
-                const opt = document.createElement('option');
-                opt.value = String(t.id);
-                const base = t.type === 'dm' ? (t.otherUsername || 'Conversa') : (t.name || 'Grupo');
-                const suffix = t.unreadCount > 0 ? ` (${t.unreadCount > 99 ? '99+' : t.unreadCount})` : '';
-                opt.innerText = `${base}${suffix}`;
-                chatThreadSelect.appendChild(opt);
-            });
-            if (chatCurrentThreadId) {
-                chatThreadSelect.value = String(chatCurrentThreadId);
-            }
-        }
-
-        async function carregarChatThreads({ keepSelection } = {}) {
-            const result = await apiJson('/api/chat-threads', { method: 'GET' });
-            if (!result.ok || !result.data || !result.data.ok) return false;
-
-            chatThreads = Array.isArray(result.data.threads) ? result.data.threads : [];
-            updateChatBadge(result.data.totalUnread);
-
-            const stored = Number(localStorage.getItem('wm_chat_thread') || '0');
-            const defaultId = Number(result.data.defaultThreadId || 0);
-            const has = (id) => chatThreads.some((t) => Number(t && t.id) === Number(id));
-
-            if (!chatCurrentThreadId || !has(chatCurrentThreadId)) {
-                chatCurrentThreadId = has(stored) ? stored : (has(defaultId) ? defaultId : (chatThreads[0] ? Number(chatThreads[0].id) : 0));
-            }
-
-            if (!keepSelection) renderChatThreadsSelect();
-            if (chatThreadSelect && String(chatThreadSelect.value || '') !== String(chatCurrentThreadId || '')) {
-                chatThreadSelect.value = String(chatCurrentThreadId || '');
-            }
-
-            return true;
+            if (!chatLastId) return;
+            await apiJson('/api/chat-read', { method: 'POST', body: JSON.stringify({ lastId: chatLastId }) });
+            updateChatBadge(0);
         }
 
         async function carregarChat({ sinceId, initial } = {}) {
             const sid = Number.isFinite(Number(sinceId)) ? Number(sinceId) : 0;
-            if (!chatCurrentThreadId) return false;
-            const baseUrl = `/api/chat?threadId=${Number(chatCurrentThreadId)}`;
-            const url = sid > 0 ? `${baseUrl}&sinceId=${sid}&limit=120` : `${baseUrl}&limit=60`;
+            const url = sid > 0 ? `/api/chat?sinceId=${sid}&limit=120` : `/api/chat?limit=60`;
             const result = await apiJson(url, { method: 'GET' });
             if (!result.ok || !result.data || !result.data.ok) return false;
 
             chatParticipants = Array.isArray(result.data.participants) ? result.data.participants : [];
             const messages = Array.isArray(result.data.messages) ? result.data.messages : [];
+            updateChatBadge(result.data.unreadCount);
 
             if (initial) {
                 chatMessages = messages;
@@ -2147,16 +2034,13 @@
         function startChatPolling() {
             if (chatPollingId) return;
             chatPollingId = setInterval(async () => {
-                const prevUnread = chatUnreadCount;
-                await carregarChatThreads({ keepSelection: true });
-
+                const before = chatMessages.length ? chatLastId : 0;
+                const ok = await carregarChat({ sinceId: before, initial: false });
+                if (!ok) return;
                 if (isChatActive()) {
-                    const before = chatMessages.length ? chatLastId : 0;
-                    const ok = await carregarChat({ sinceId: before, initial: false });
-                    if (!ok) return;
                     scrollChatToBottom();
                     await marcarChatLido();
-                } else if (chatUnreadCount > prevUnread && chatUnreadCount > 0) {
+                } else if (chatUnreadCount > 0) {
                     if (navigator && navigator.vibrate) navigator.vibrate(120);
                 }
             }, 3000);
@@ -2169,12 +2053,11 @@
         }
 
         async function abrirChat() {
-            await carregarChatThreads({ keepSelection: false });
-            chatMessages = [];
-            chatLastId = 0;
             await carregarChat({ initial: true });
+            renderChat();
             scrollChatToBottom();
             await marcarChatLido();
+            startChatPolling();
         }
 
         async function enviarChatMensagem() {
@@ -2183,8 +2066,7 @@
             if (!text) return;
             chatInput.value = '';
 
-            if (!chatCurrentThreadId) return;
-            const result = await apiJson('/api/chat', { method: 'POST', body: JSON.stringify({ threadId: chatCurrentThreadId, text }) });
+            const result = await apiJson('/api/chat', { method: 'POST', body: JSON.stringify({ text }) });
             if (!result.ok || !result.data || !result.data.ok) {
                 alert('Erro ao enviar mensagem.');
                 return;
@@ -2197,177 +2079,6 @@
                 scrollChatToBottom();
                 await marcarChatLido();
             }
-        }
-
-        function toggleChatOverlay(show) {
-            if (!chatOverlay) return;
-            chatOverlay.style.display = show ? 'flex' : 'none';
-        }
-
-        async function selecionarThread(threadId) {
-            const id = Number(threadId);
-            if (!Number.isFinite(id) || id <= 0) return;
-            chatCurrentThreadId = id;
-            localStorage.setItem('wm_chat_thread', String(id));
-            if (chatThreadSelect) chatThreadSelect.value = String(id);
-            chatMessages = [];
-            chatLastId = 0;
-            await carregarChat({ initial: true });
-            scrollChatToBottom();
-            await marcarChatLido();
-        }
-
-        async function abrirContato(username) {
-            const otherUsername = String(username || '').trim();
-            if (!otherUsername) return;
-            const result = await apiJson('/api/chat-threads', { method: 'POST', body: JSON.stringify({ type: 'dm', otherUsername }) });
-            if (!result.ok || !result.data || !result.data.ok) {
-                alert('Erro ao abrir conversa.');
-                return;
-            }
-            toggleChatOverlay(false);
-            await carregarChatThreads({ keepSelection: false });
-            await selecionarThread(result.data.threadId);
-        }
-
-        async function criarGrupo(name, members) {
-            const groupName = String(name || '').trim();
-            if (!groupName) {
-                alert('Informe o nome do grupo.');
-                return;
-            }
-            const list = Array.isArray(members) ? members : [];
-            const result = await apiJson('/api/chat-threads', { method: 'POST', body: JSON.stringify({ type: 'group', name: groupName, members: list }) });
-            if (!result.ok || !result.data || !result.data.ok) {
-                const err = result && result.data && result.data.error ? String(result.data.error) : '';
-                if (err === 'not_enough_members') alert('Selecione pelo menos 1 usuário além de você.');
-                else alert('Erro ao criar grupo.');
-                return;
-            }
-            toggleChatOverlay(false);
-            await carregarChatThreads({ keepSelection: false });
-            await selecionarThread(result.data.threadId);
-        }
-
-        async function abrirOverlayContatos() {
-            if (!chatOverlayTitle || !chatOverlayList || !chatOverlaySave || !chatOverlayName) return;
-            chatOverlayTitle.innerText = 'Contatos';
-            chatOverlayName.style.display = 'none';
-            chatOverlaySave.style.display = 'none';
-            chatOverlayList.innerHTML = '';
-            toggleChatOverlay(true);
-
-            const result = await apiJson('/api/contacts', { method: 'GET' });
-            const contacts = result.ok && result.data && result.data.ok && Array.isArray(result.data.contacts) ? result.data.contacts : [];
-            if (contacts.length === 0) {
-                const empty = document.createElement('div');
-                empty.style.fontSize = '12px';
-                empty.style.color = 'rgba(255,255,255,0.6)';
-                empty.innerText = 'Nenhum contato disponível.';
-                chatOverlayList.appendChild(empty);
-                return;
-            }
-
-            contacts.forEach((c) => {
-                const username = c && c.username ? String(c.username) : '';
-                const photo = c && c.photo ? String(c.photo) : '';
-                const item = document.createElement('div');
-                item.className = 'admin-item';
-                item.style.cursor = 'pointer';
-                item.innerHTML = `
-                    <div style="display:flex; gap:12px; align-items:center; min-width:0;">
-                        <div class="chat-avatar">
-                            <img alt="Foto">
-                            <span>?</span>
-                        </div>
-                        <div style="min-width:0;">
-                            <div class="admin-item-title">${escapeHtml(username)}</div>
-                            <div class="admin-item-sub">Abrir conversa</div>
-                        </div>
-                    </div>
-                `;
-                const img = item.querySelector('img');
-                const span = item.querySelector('span');
-                if (img && span) {
-                    if (photo) {
-                        img.src = photo;
-                        img.style.display = 'block';
-                        span.style.display = 'none';
-                    } else {
-                        img.removeAttribute('src');
-                        img.style.display = 'none';
-                        span.style.display = 'inline';
-                        span.innerText = username ? username.slice(0, 1).toUpperCase() : '?';
-                    }
-                }
-                item.addEventListener('click', () => abrirContato(username));
-                chatOverlayList.appendChild(item);
-            });
-        }
-
-        async function abrirOverlayGrupo() {
-            if (!chatOverlayTitle || !chatOverlayList || !chatOverlaySave || !chatOverlayName) return;
-            chatOverlayTitle.innerText = 'Novo grupo';
-            chatOverlayName.style.display = 'block';
-            chatOverlayName.value = '';
-            chatOverlaySave.style.display = 'flex';
-            const label = chatOverlaySave.querySelector('span');
-            if (label) label.innerText = 'Criar grupo';
-            chatOverlayList.innerHTML = '';
-            toggleChatOverlay(true);
-
-            const result = await apiJson('/api/contacts', { method: 'GET' });
-            const contacts = result.ok && result.data && result.data.ok && Array.isArray(result.data.contacts) ? result.data.contacts : [];
-            const selected = new Set();
-
-            contacts.forEach((c) => {
-                const username = c && c.username ? String(c.username) : '';
-                const photo = c && c.photo ? String(c.photo) : '';
-                const item = document.createElement('div');
-                item.className = 'admin-item';
-                item.innerHTML = `
-                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-                        <div style="display:flex; gap:12px; align-items:center; min-width:0;">
-                            <div class="chat-avatar">
-                                <img alt="Foto">
-                                <span>?</span>
-                            </div>
-                            <div style="min-width:0;">
-                                <div class="admin-item-title">${escapeHtml(username)}</div>
-                                <div class="admin-item-sub">Selecionar</div>
-                            </div>
-                        </div>
-                        <label class="admin-toggle">
-                            <input type="checkbox" data-username="${escapeHtml(username)}">
-                            Incluir
-                        </label>
-                    </div>
-                `;
-                const img = item.querySelector('img');
-                const span = item.querySelector('span');
-                if (img && span) {
-                    if (photo) {
-                        img.src = photo;
-                        img.style.display = 'block';
-                        span.style.display = 'none';
-                    } else {
-                        img.removeAttribute('src');
-                        img.style.display = 'none';
-                        span.style.display = 'inline';
-                        span.innerText = username ? username.slice(0, 1).toUpperCase() : '?';
-                    }
-                }
-                const checkbox = item.querySelector('input[type="checkbox"][data-username]');
-                if (checkbox) {
-                    checkbox.addEventListener('change', () => {
-                        if (checkbox.checked) selected.add(username);
-                        else selected.delete(username);
-                    });
-                }
-                chatOverlayList.appendChild(item);
-            });
-
-            chatOverlaySave.onclick = () => criarGrupo(chatOverlayName.value, Array.from(selected));
         }
 
         async function carregarRepertorio() {
@@ -2799,7 +2510,6 @@
                 await carregarRepertorio();
                 renderizarRepertorio();
                 if (navChat) navChat.style.display = 'inline-block';
-                if (chatNewGroupBtn) chatNewGroupBtn.style.display = currentUser && currentUser.isAdmin ? 'inline-flex' : 'none';
                 if (navProfile) navProfile.style.display = 'inline-block';
                 if (navAdmin) navAdmin.style.display = currentUser && currentUser.isAdmin ? 'inline-block' : 'none';
                 if (currentUser && currentUser.isAdmin) {
@@ -2809,7 +2519,7 @@
                     adminRenderMembros();
                 }
                 await carregarPerfil();
-                await carregarChatThreads({ keepSelection: false });
+                await carregarChat({ initial: chatMessages.length === 0 });
                 startChatPolling();
                 if (currentUser && currentUser.mustChangePassword) {
                     togglePasswordOverlay(true, true);
@@ -2823,7 +2533,6 @@
                 if (mainNav) mainNav.style.display = 'none';
                 if (sendSmartBtn) sendSmartBtn.style.display = 'none';
                 if (navChat) navChat.style.display = 'none';
-                if (chatNewGroupBtn) chatNewGroupBtn.style.display = 'none';
                 if (navProfile) navProfile.style.display = 'none';
                 if (navAdmin) navAdmin.style.display = 'none';
                 stopChatPolling();

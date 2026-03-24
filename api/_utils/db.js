@@ -81,44 +81,6 @@ async function ensureSchema() {
       PRIMARY KEY (message_id, username)
     );
   `;
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS chat_threads (
-      id SERIAL PRIMARY KEY,
-      type TEXT NOT NULL,
-      name TEXT NOT NULL DEFAULT '',
-      created_by TEXT NOT NULL DEFAULT '',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `;
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS chat_thread_members (
-      thread_id INT NOT NULL REFERENCES chat_threads(id) ON DELETE CASCADE,
-      username TEXT NOT NULL,
-      added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      PRIMARY KEY (thread_id, username)
-    );
-  `;
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS chat_thread_messages (
-      id SERIAL PRIMARY KEY,
-      thread_id INT NOT NULL REFERENCES chat_threads(id) ON DELETE CASCADE,
-      sender_username TEXT NOT NULL,
-      text TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `;
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS chat_thread_reads (
-      message_id INT NOT NULL REFERENCES chat_thread_messages(id) ON DELETE CASCADE,
-      username TEXT NOT NULL,
-      read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      PRIMARY KEY (message_id, username)
-    );
-  `;
 }
 
 module.exports = { sql, ensureSchema };
