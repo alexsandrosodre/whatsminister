@@ -1078,8 +1078,14 @@
 
         <div id="chatView" class="view-section">
             <div class="panel-card" style="padding: 12px;">
-                <label>Mensagem</label>
-                <div id="chatList" style="margin-top: 10px; height: 55vh; overflow-y: auto; display:flex; flex-direction:column; gap:10px; padding-right: 6px;"></div>
+                <label>Chat</label>
+                <div style="margin-top: 10px; display:flex; gap:10px;">
+                    <button id="chatTabContacts" class="nav-btn active" type="button">Contatos</button>
+                    <button id="chatTabGroups" class="nav-btn" type="button">Grupos</button>
+                </div>
+                <div id="chatThreadsList" style="margin-top: 10px; max-height: 22vh; overflow-y: auto; display:flex; flex-direction:column; gap:10px; padding-right: 6px;"></div>
+                <div id="chatSelectedTitle" style="margin-top: 10px; font-weight: 900; display:none;"></div>
+                <div id="chatList" style="margin-top: 10px; height: 38vh; overflow-y: auto; display:flex; flex-direction:column; gap:10px; padding-right: 6px;"></div>
                 <div class="chat-composer">
                     <textarea id="chatInput" class="text-input" placeholder="Digite uma mensagem..."></textarea>
                     <button id="chatSendBtn" class="btn-send chat-send-btn">
@@ -1177,6 +1183,21 @@
                 </div>
 
                 <div class="panel-card">
+                    <label>Grupos (Chat)</label>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 8px;">
+                        Só o admin cria grupos e adiciona pessoas. Os grupos aparecem na aba Chat para os membros.
+                    </div>
+                    <div style="margin-top: 12px;">
+                        <input id="adminChatGroupName" class="text-input" type="text" placeholder="Nome do grupo">
+                        <div id="adminChatGroupUsersList" class="admin-list" style="margin-top: 10px;"></div>
+                        <button id="adminChatCreateGroupBtn" class="btn-send" style="padding: 10px; font-size: 14px; margin-top: 10px;">
+                            <span>Criar Grupo</span>
+                        </button>
+                    </div>
+                    <div id="adminChatGroupsList" class="admin-list" style="margin-top: 12px;"></div>
+                </div>
+
+                <div class="panel-card">
                     <label>App (Instalar)</label>
                     <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 8px;">
                         Android: o Chrome libera um botão de instalar quando o app é PWA.
@@ -1228,7 +1249,7 @@
         let passwordOverlay, closePasswordOverlay, passwordHint, passwordError, currentPasswordInput, newPasswordInput, newPassword2Input;
         let mainNav, homeView, scheduleView, repertoireView, chatView, profileView, adminView, navHome, navSchedule, navRepertoire, navChat, navChatBadge, navProfile, navAdmin;
         let repertoireName, repertoireLink, repertoireLyrics, repertoireSearch, addRepertoireBtn, repertoireList;
-        let chatList, chatInput, chatSendBtn;
+        let chatList, chatInput, chatSendBtn, chatTabContacts, chatTabGroups, chatThreadsList, chatSelectedTitle;
         let profilePhotoInput, profilePhotoPreview, profilePhotoPlaceholder, profileSavePhotoBtn, profileRemovePhotoBtn, profilePhotoMsg, profileUsername;
         let profilePhotoDraft = '';
         let lyricsModal, lyricsModalTitle, lyricsModalBody;
@@ -1236,6 +1257,11 @@
         let repertoireItems = [];
         let repertoireEditingId = null;
         let repertoireLyricsExpandedIds = new Set();
+        let chatContacts = [];
+        let chatThreads = [];
+        let chatActiveTab = 'contacts';
+        let chatActiveThreadId = 0;
+        let chatActiveThreadLabel = '';
         let chatParticipants = [];
         let chatMessages = [];
         let chatLastId = 0;
@@ -1246,10 +1272,14 @@
         let pwaInstalled = false;
         let adminUsers = [];
         let adminMembers = [];
+        let adminChatGroups = [];
+        let adminChatGroupSelectedUsers = new Set();
+        let adminChatGroupEditingId = null;
         let adminMemberEditingId = null;
         let adminShowInactiveMembers = false;
         let adminNewUsername, adminNewIsAdmin, adminCreateUserBtn, adminUsersList;
         let adminMemberName, adminCreateMemberBtn, adminMembersList;
+        let adminChatGroupName, adminChatCreateGroupBtn, adminChatGroupUsersList, adminChatGroupsList;
         let adminInstallBtn, adminInstallStatus;
         let adminUserPhotoPreview, adminUserPhotoImg, adminUserPhotoInitial, adminUserPhotoName;
         let adminShowInactiveToggle;
@@ -1361,6 +1391,10 @@
              chatList = document.getElementById('chatList');
              chatInput = document.getElementById('chatInput');
              chatSendBtn = document.getElementById('chatSendBtn');
+             chatTabContacts = document.getElementById('chatTabContacts');
+             chatTabGroups = document.getElementById('chatTabGroups');
+             chatThreadsList = document.getElementById('chatThreadsList');
+             chatSelectedTitle = document.getElementById('chatSelectedTitle');
              profilePhotoInput = document.getElementById('profilePhotoInput');
              profilePhotoPreview = document.getElementById('profilePhotoPreview');
              profilePhotoPlaceholder = document.getElementById('profilePhotoPlaceholder');
@@ -1381,6 +1415,10 @@
              adminCreateMemberBtn = document.getElementById('adminCreateMemberBtn');
              adminMembersList = document.getElementById('adminMembersList');
              adminShowInactiveToggle = document.getElementById('adminShowInactiveToggle');
+             adminChatGroupName = document.getElementById('adminChatGroupName');
+             adminChatCreateGroupBtn = document.getElementById('adminChatCreateGroupBtn');
+             adminChatGroupUsersList = document.getElementById('adminChatGroupUsersList');
+             adminChatGroupsList = document.getElementById('adminChatGroupsList');
             adminInstallBtn = document.getElementById('adminInstallBtn');
             adminInstallStatus = document.getElementById('adminInstallStatus');
 
@@ -1530,10 +1568,16 @@
             if (chatList) {
                 chatList.addEventListener('scroll', async () => {
                     const nearBottom = (chatList.scrollHeight - chatList.scrollTop - chatList.clientHeight) < 40;
-                    if (nearBottom && isChatActive() && chatUnreadCount > 0) {
+                    if (nearBottom && isChatActive() && chatActiveThreadId) {
                         await marcarChatLido();
                     }
                 });
+            }
+            if (chatTabContacts) {
+                chatTabContacts.addEventListener('click', () => setChatTab('contacts'));
+            }
+            if (chatTabGroups) {
+                chatTabGroups.addEventListener('click', () => setChatTab('groups'));
             }
 
             if (adminCreateUserBtn) {
@@ -1542,6 +1586,9 @@
 
             if (adminCreateMemberBtn) {
                 adminCreateMemberBtn.addEventListener('click', adminCriarMembro);
+            }
+            if (adminChatCreateGroupBtn) {
+                adminChatCreateGroupBtn.addEventListener('click', adminCriarChatGrupo);
             }
         });
 
@@ -1893,6 +1940,148 @@
             }
         }
 
+        function setChatTab(tab) {
+            chatActiveTab = tab === 'groups' ? 'groups' : 'contacts';
+            if (chatTabContacts) chatTabContacts.classList.toggle('active', chatActiveTab === 'contacts');
+            if (chatTabGroups) chatTabGroups.classList.toggle('active', chatActiveTab === 'groups');
+            renderChatThreadsList();
+        }
+
+        function updateChatComposerState() {
+            const enabled = Boolean(chatActiveThreadId);
+            if (chatInput) {
+                chatInput.disabled = !enabled;
+                chatInput.placeholder = enabled ? 'Digite uma mensagem...' : 'Selecione um contato ou grupo...';
+            }
+            if (chatSendBtn) chatSendBtn.disabled = !enabled;
+        }
+
+        async function carregarChatContatos() {
+            const result = await apiJson('/api/contacts', { method: 'GET' });
+            if (!result.ok || !result.data || !result.data.ok) {
+                chatContacts = [];
+                return false;
+            }
+            chatContacts = Array.isArray(result.data.contacts) ? result.data.contacts : [];
+            return true;
+        }
+
+        async function carregarChatThreads() {
+            const result = await apiJson('/api/chat-threads', { method: 'GET' });
+            if (!result.ok || !result.data || !result.data.ok) {
+                chatThreads = [];
+                updateChatBadge(0);
+                return false;
+            }
+            chatThreads = Array.isArray(result.data.threads) ? result.data.threads : [];
+            updateChatBadge(result.data.totalUnread);
+            return true;
+        }
+
+        function getDmThreadByUsername(username) {
+            const target = String(username || '').toLowerCase();
+            return (Array.isArray(chatThreads) ? chatThreads : []).find((t) => t && t.type === 'dm' && String(t.otherUsername || '').toLowerCase() === target) || null;
+        }
+
+        function renderChatThreadsList() {
+            if (!chatThreadsList) return;
+            chatThreadsList.innerHTML = '';
+
+            if (chatActiveTab === 'contacts') {
+                if (!Array.isArray(chatContacts) || chatContacts.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.className = 'admin-item';
+                    empty.innerHTML = '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhum contato.</div>';
+                    chatThreadsList.appendChild(empty);
+                    return;
+                }
+
+                chatContacts.forEach((c) => {
+                    const username = c && c.username ? String(c.username) : '';
+                    const photo = c && c.photo ? String(c.photo) : '';
+                    if (!username) return;
+
+                    const dm = getDmThreadByUsername(username);
+                    const unread = dm && Number.isFinite(Number(dm.unreadCount)) ? Number(dm.unreadCount) : 0;
+
+                    const item = document.createElement('div');
+                    item.className = 'admin-item';
+                    item.style.cursor = 'pointer';
+                    item.innerHTML = `
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                            <div style="display:flex; gap:12px; align-items:center; min-width:0;">
+                                <div class="chat-avatar">
+                                    <img alt="Foto">
+                                    <span>?</span>
+                                </div>
+                                <div style="min-width:0;">
+                                    <div class="admin-item-title">${escapeHtml(username)}</div>
+                                    <div class="admin-item-sub">Conversar</div>
+                                </div>
+                            </div>
+                            <span style="display:${unread > 0 ? 'inline-flex' : 'none'}; align-items:center; justify-content:center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--accent-red); color: #fff; font-size: 11px; font-weight: 900;">
+                                ${escapeHtml(unread > 99 ? '99+' : String(unread))}
+                            </span>
+                        </div>
+                    `;
+
+                    const img = item.querySelector('img');
+                    const span = item.querySelector('.chat-avatar span');
+                    if (img && span) {
+                        if (photo) {
+                            img.src = photo;
+                            img.style.display = 'block';
+                            span.style.display = 'none';
+                        } else {
+                            img.removeAttribute('src');
+                            img.style.display = 'none';
+                            span.style.display = 'inline';
+                            span.innerText = username.slice(0, 1).toUpperCase();
+                        }
+                    }
+
+                    item.addEventListener('click', () => abrirDm(username));
+                    chatThreadsList.appendChild(item);
+                });
+
+                return;
+            }
+
+            const groups = (Array.isArray(chatThreads) ? chatThreads : []).filter((t) => t && t.type === 'group');
+            if (groups.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'admin-item';
+                empty.innerHTML = '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhum grupo. Peça ao admin para adicionar você.</div>';
+                chatThreadsList.appendChild(empty);
+                return;
+            }
+
+            groups.forEach((g) => {
+                const id = Number(g && g.id);
+                const name = g && g.name ? String(g.name) : 'Grupo';
+                const unread = g && Number.isFinite(Number(g.unreadCount)) ? Number(g.unreadCount) : 0;
+                if (!Number.isFinite(id)) return;
+
+                const item = document.createElement('div');
+                item.className = 'admin-item';
+                item.style.cursor = 'pointer';
+                item.innerHTML = `
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                        <div style="min-width:0;">
+                            <div class="admin-item-title">${escapeHtml(name)}</div>
+                            <div class="admin-item-sub">Abrir grupo</div>
+                        </div>
+                        <span style="display:${unread > 0 ? 'inline-flex' : 'none'}; align-items:center; justify-content:center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--accent-red); color: #fff; font-size: 11px; font-weight: 900;">
+                            ${escapeHtml(unread > 99 ? '99+' : String(unread))}
+                        </span>
+                    </div>
+                `;
+
+                item.addEventListener('click', () => selecionarChatThread(id, name));
+                chatThreadsList.appendChild(item);
+            });
+        }
+
         function renderChat() {
             if (!chatList) return;
             chatList.innerHTML = '';
@@ -1997,20 +2186,22 @@
         }
 
         async function marcarChatLido() {
-            if (!chatLastId) return;
-            await apiJson('/api/chat-read', { method: 'POST', body: JSON.stringify({ lastId: chatLastId }) });
-            updateChatBadge(0);
+            if (!chatActiveThreadId || !chatLastId) return;
+            await apiJson('/api/chat-read', { method: 'POST', body: JSON.stringify({ threadId: chatActiveThreadId, lastId: chatLastId }) });
+            await carregarChatThreads();
+            renderChatThreadsList();
         }
 
         async function carregarChat({ sinceId, initial } = {}) {
             const sid = Number.isFinite(Number(sinceId)) ? Number(sinceId) : 0;
-            const url = sid > 0 ? `/api/chat?sinceId=${sid}&limit=120` : `/api/chat?limit=60`;
+            if (!chatActiveThreadId) return false;
+            const base = `/api/chat?threadId=${Number(chatActiveThreadId)}`;
+            const url = sid > 0 ? `${base}&sinceId=${sid}&limit=120` : `${base}&limit=60`;
             const result = await apiJson(url, { method: 'GET' });
             if (!result.ok || !result.data || !result.data.ok) return false;
 
             chatParticipants = Array.isArray(result.data.participants) ? result.data.participants : [];
             const messages = Array.isArray(result.data.messages) ? result.data.messages : [];
-            updateChatBadge(result.data.unreadCount);
 
             if (initial) {
                 chatMessages = messages;
@@ -2034,13 +2225,18 @@
         function startChatPolling() {
             if (chatPollingId) return;
             chatPollingId = setInterval(async () => {
+                const prevUnread = chatUnreadCount;
+                await carregarChatThreads();
+                renderChatThreadsList();
+
+                if (!chatActiveThreadId) return;
                 const before = chatMessages.length ? chatLastId : 0;
                 const ok = await carregarChat({ sinceId: before, initial: false });
                 if (!ok) return;
                 if (isChatActive()) {
                     scrollChatToBottom();
                     await marcarChatLido();
-                } else if (chatUnreadCount > 0) {
+                } else if (chatUnreadCount > prevUnread && chatUnreadCount > 0) {
                     if (navigator && navigator.vibrate) navigator.vibrate(120);
                 }
             }, 3000);
@@ -2053,20 +2249,60 @@
         }
 
         async function abrirChat() {
-            await carregarChat({ initial: true });
+            if (chatSelectedTitle) chatSelectedTitle.style.display = 'none';
+            chatActiveThreadId = 0;
+            chatActiveThreadLabel = '';
+            chatParticipants = [];
+            chatMessages = [];
+            chatLastId = 0;
             renderChat();
+            updateChatComposerState();
+            await carregarChatContatos();
+            await carregarChatThreads();
+            setChatTab(chatActiveTab);
+            startChatPolling();
+        }
+
+        async function selecionarChatThread(threadId, label) {
+            const id = Number(threadId);
+            if (!Number.isFinite(id) || id <= 0) return;
+            chatActiveThreadId = id;
+            chatActiveThreadLabel = String(label || '');
+            chatParticipants = [];
+            chatMessages = [];
+            chatLastId = 0;
+            if (chatSelectedTitle) {
+                chatSelectedTitle.style.display = 'block';
+                chatSelectedTitle.innerText = chatActiveThreadLabel || 'Chat';
+            }
+            updateChatComposerState();
+            await carregarChat({ initial: true });
             scrollChatToBottom();
             await marcarChatLido();
-            startChatPolling();
+        }
+
+        async function abrirDm(username) {
+            const otherUsername = String(username || '').trim();
+            if (!otherUsername) return;
+            const result = await apiJson('/api/chat-threads', { method: 'POST', body: JSON.stringify({ type: 'dm', otherUsername }) });
+            if (!result.ok || !result.data || !result.data.ok) {
+                alert('Erro ao abrir conversa.');
+                return;
+            }
+            await selecionarChatThread(result.data.threadId, otherUsername);
         }
 
         async function enviarChatMensagem() {
             if (!chatInput) return;
             const text = chatInput.value.trim();
             if (!text) return;
+            if (!chatActiveThreadId) {
+                alert('Selecione um contato ou grupo.');
+                return;
+            }
             chatInput.value = '';
 
-            const result = await apiJson('/api/chat', { method: 'POST', body: JSON.stringify({ text }) });
+            const result = await apiJson('/api/chat', { method: 'POST', body: JSON.stringify({ threadId: chatActiveThreadId, text }) });
             if (!result.ok || !result.data || !result.data.ok) {
                 alert('Erro ao enviar mensagem.');
                 return;
@@ -2246,6 +2482,202 @@
                 return;
             }
             adminMembers = Array.isArray(result.data.members) ? result.data.members : [];
+        }
+
+        async function adminCarregarChatGrupos() {
+            const result = await apiJson('/api/chat-groups', { method: 'GET' });
+            if (!result.ok || !result.data || !result.data.ok) {
+                adminChatGroups = [];
+                return;
+            }
+            adminChatGroups = Array.isArray(result.data.groups) ? result.data.groups : [];
+        }
+
+        function adminRenderChatGrupoUsuarios() {
+            if (!adminChatGroupUsersList) return;
+            adminChatGroupUsersList.innerHTML = '';
+            adminChatGroupSelectedUsers = new Set();
+
+            if (!Array.isArray(adminUsers) || adminUsers.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'admin-item';
+                empty.innerHTML = '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhum usuário para selecionar.</div>';
+                adminChatGroupUsersList.appendChild(empty);
+                return;
+            }
+
+            adminUsers.forEach((u) => {
+                const username = u && u.username ? String(u.username) : '';
+                if (!username) return;
+                const item = document.createElement('div');
+                item.className = 'admin-item';
+                item.innerHTML = `
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                        <div style="min-width:0;">
+                            <div class="admin-item-title">${escapeHtml(username)}</div>
+                            <div class="admin-item-sub">Incluir no grupo</div>
+                        </div>
+                        <label class="admin-toggle">
+                            <input type="checkbox" data-username="${escapeHtml(username)}">
+                            Incluir
+                        </label>
+                    </div>
+                `;
+                const checkbox = item.querySelector('input[type="checkbox"][data-username]');
+                if (checkbox) {
+                    checkbox.addEventListener('change', () => {
+                        if (checkbox.checked) adminChatGroupSelectedUsers.add(username);
+                        else adminChatGroupSelectedUsers.delete(username);
+                    });
+                }
+                adminChatGroupUsersList.appendChild(item);
+            });
+        }
+
+        async function adminCriarChatGrupo() {
+            if (!adminChatGroupName) return;
+            const name = adminChatGroupName.value.trim();
+            if (!name) {
+                alert('Informe o nome do grupo.');
+                return;
+            }
+            const members = Array.from(adminChatGroupSelectedUsers);
+            const result = await apiJson('/api/chat-groups', { method: 'POST', body: JSON.stringify({ name, members }) });
+            if (!result.ok || !result.data || !result.data.ok) {
+                const err = result && result.data && result.data.error ? String(result.data.error) : '';
+                if (err === 'not_enough_members') alert('Selecione pelo menos 1 usuário além de você.');
+                else alert('Erro ao criar grupo.');
+                return;
+            }
+            adminChatGroupName.value = '';
+            adminRenderChatGrupoUsuarios();
+            await adminCarregarChatGrupos();
+            adminRenderChatGrupos();
+            await carregarChatThreads();
+            renderChatThreadsList();
+        }
+
+        function adminRenderChatGrupos() {
+            if (!adminChatGroupsList) return;
+            adminChatGroupsList.innerHTML = '';
+
+            if (!Array.isArray(adminChatGroups) || adminChatGroups.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'admin-item';
+                empty.innerHTML = '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhum grupo criado.</div>';
+                adminChatGroupsList.appendChild(empty);
+                return;
+            }
+
+            adminChatGroups.forEach((g) => {
+                const id = Number(g && g.id);
+                const name = g && g.name ? String(g.name) : '';
+                const members = Array.isArray(g && g.members) ? g.members : [];
+                if (!Number.isFinite(id)) return;
+
+                const item = document.createElement('div');
+                item.className = 'admin-item';
+
+                const membersHtml = members
+                    .map((m) => String(m && m.username ? m.username : ''))
+                    .filter(Boolean)
+                    .slice(0, 24)
+                    .map((u) => `<span style="display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); font-size: 11px;">${escapeHtml(u)}</span>`)
+                    .join(' ');
+
+                item.innerHTML = `
+                    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+                        <div style="min-width:0;">
+                            <div class="admin-item-title">${escapeHtml(name || 'Grupo')}</div>
+                            <div class="admin-item-sub">${members.length} membro(s)</div>
+                            <div style="margin-top: 8px; display:flex; flex-wrap:wrap; gap:6px;">${membersHtml}</div>
+                        </div>
+                        <span class="admin-action" data-edit-chat-group-id="${id}">${adminChatGroupEditingId === id ? 'Fechar' : 'Editar'}</span>
+                    </div>
+                `;
+
+                if (adminChatGroupEditingId === id) {
+                    const editor = document.createElement('div');
+                    editor.style.marginTop = '12px';
+                    editor.style.display = 'flex';
+                    editor.style.flexDirection = 'column';
+                    editor.style.gap = '10px';
+
+                    const selected = new Set(members.map((m) => String(m && m.username ? m.username : '')).filter(Boolean));
+                    if (currentUser && currentUser.username) selected.add(String(currentUser.username));
+
+                    const list = document.createElement('div');
+                    list.className = 'admin-list';
+                    (Array.isArray(adminUsers) ? adminUsers : []).forEach((u) => {
+                        const username = u && u.username ? String(u.username) : '';
+                        if (!username) return;
+                        const row = document.createElement('div');
+                        row.className = 'admin-item';
+                        const checked = selected.has(username);
+                        row.innerHTML = `
+                            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                                <div style="min-width:0;">
+                                    <div class="admin-item-title">${escapeHtml(username)}</div>
+                                    <div class="admin-item-sub">Membro do grupo</div>
+                                </div>
+                                <label class="admin-toggle">
+                                    <input type="checkbox" data-username="${escapeHtml(username)}" ${checked ? 'checked' : ''}>
+                                    Incluir
+                                </label>
+                            </div>
+                        `;
+                        const checkbox = row.querySelector('input[type="checkbox"][data-username]');
+                        if (checkbox) {
+                            checkbox.addEventListener('change', () => {
+                                if (checkbox.checked) selected.add(username);
+                                else selected.delete(username);
+                            });
+                        }
+                        list.appendChild(row);
+                    });
+
+                    const actions = document.createElement('div');
+                    actions.style.display = 'flex';
+                    actions.style.gap = '10px';
+                    actions.style.justifyContent = 'flex-end';
+                    actions.innerHTML = `
+                        <button class="btn-send" style="padding: 10px; font-size: 14px;">
+                            <span>Salvar</span>
+                        </button>
+                    `;
+                    const saveBtn = actions.querySelector('button');
+                    if (saveBtn) {
+                        saveBtn.addEventListener('click', async () => {
+                            const membersList = Array.from(selected);
+                            const result = await apiJson('/api/chat-groups', { method: 'PUT', body: JSON.stringify({ threadId: id, members: membersList }) });
+                            if (!result.ok || !result.data || !result.data.ok) {
+                                const err = result && result.data && result.data.error ? String(result.data.error) : '';
+                                if (err === 'not_enough_members') alert('Selecione pelo menos 1 usuário além de você.');
+                                else alert('Erro ao salvar grupo.');
+                                return;
+                            }
+                            await adminCarregarChatGrupos();
+                            adminRenderChatGrupos();
+                            await carregarChatThreads();
+                            renderChatThreadsList();
+                        });
+                    }
+
+                    editor.appendChild(list);
+                    editor.appendChild(actions);
+                    item.appendChild(editor);
+                }
+
+                item.querySelectorAll('.admin-action[data-edit-chat-group-id]').forEach((el) => {
+                    el.addEventListener('click', () => {
+                        const tid = Number(el.getAttribute('data-edit-chat-group-id'));
+                        adminChatGroupEditingId = adminChatGroupEditingId === tid ? null : tid;
+                        adminRenderChatGrupos();
+                    });
+                });
+
+                adminChatGroupsList.appendChild(item);
+            });
         }
 
         function adminRenderUsuarios() {
@@ -2515,11 +2947,16 @@
                 if (currentUser && currentUser.isAdmin) {
                     await adminCarregarUsuarios();
                     await adminCarregarMembros();
+                    await adminCarregarChatGrupos();
                     adminRenderUsuarios();
                     adminRenderMembros();
+                    adminRenderChatGrupoUsuarios();
+                    adminRenderChatGrupos();
                 }
                 await carregarPerfil();
-                await carregarChat({ initial: chatMessages.length === 0 });
+                await carregarChatContatos();
+                await carregarChatThreads();
+                renderChatThreadsList();
                 startChatPolling();
                 if (currentUser && currentUser.mustChangePassword) {
                     togglePasswordOverlay(true, true);
@@ -2573,6 +3010,8 @@
                 if (navAdmin) navAdmin.classList.add('active');
                 adminRenderUsuarios();
                 adminRenderMembros();
+                adminRenderChatGrupoUsuarios();
+                adminRenderChatGrupos();
             } else if (viewName === 'profile') {
                 if (profileView) profileView.classList.add('active');
                 if (navProfile) navProfile.classList.add('active');
