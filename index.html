@@ -928,11 +928,14 @@
             max-width: 100%;
             padding: 0;
             height: 100vh;
+            width: 100vw;
             gap: 0;
         }
 
         body.chat-only #chatView.view-section.active {
             display: block;
+            height: 100%;
+            width: 100%;
         }
 
         body.chat-only #chatView .panel-card {
@@ -941,6 +944,7 @@
             display: flex;
             flex-direction: column;
             box-sizing: border-box;
+            padding: 0 !important;
         }
 
         body.chat-only #chatThreadsList {
@@ -1153,7 +1157,7 @@
                     <button id="chatBackBtn" class="nav-btn" type="button">Voltar</button>
                     <div id="chatTopTitle" class="chat-topbar-title">Chat</div>
                 </div>
-                <div id="chatPicker" style="margin-top: 10px;">
+                <div id="chatPicker" style="margin-top: 0;">
                     <div style="display:flex; gap:10px;">
                         <button id="chatTabContacts" class="nav-btn active" type="button">Contatos</button>
                         <button id="chatTabGroups" class="nav-btn" type="button">Grupos</button>
