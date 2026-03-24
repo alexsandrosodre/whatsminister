@@ -897,6 +897,127 @@ async function handleChatRead(req, res) {
   }
 }
 
+async function handleSchedules(req, res) {
+  const user = await requireAuth(req);
+  if (!user) return sendJson(res, 401, { ok: false, error: 'unauthorized' });
+  await ensureSchema();
+  const u = new URL(req.url, 'http://localhost');
+  const days = Math.min(Math.max(Number(u.searchParams.get('days') || 30), 1), 180);
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const to = new Date(from);
+  to.setDate(to.getDate() + days);
+  const fromStr = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, '0')}-${String(from.getDate()).padStart(2, '0')}`;
+  const toStr = `${to.getFullYear()}-${String(to.getMonth() + 1).padStart(2, '0')}-${String(to.getDate()).padStart(2, '0')}`;
+
+  if (req.method === 'GET') {
+    const isAdmin = Boolean((await sql`SELECT is_admin FROM users WHERE LOWER(username) = LOWER(${user.username}) LIMIT 1;`).rows[0]?.is_admin);
+    let sched = null;
+    if (isAdmin) {
+      sched = await sql`SELECT id, date, created_by, created_at FROM schedules WHERE date >= ${fromStr} AND date <= ${toStr} ORDER BY date ASC;`;
+    } else {
+      sched = await sql`
+        SELECT s.id, s.date, s.created_by, s.created_at
+        FROM schedules s
+        JOIN schedule_members sm ON sm.schedule_id = s.id AND LOWER(sm.username) = LOWER(${user.username})
+        WHERE s.date >= ${fromStr} AND s.date <= ${toStr}
+        ORDER BY s.date ASC;
+      `;
+    }
+    const ids = sched.rows.map((r) => Number(r.id));
+    let members = { rows: [] };
+    if (ids.length > 0) {
+      members = await sql`
+        SELECT sm.schedule_id, sm.username, sm.status, sm.responded_at, COALESCE(u.profile_photo, '') AS photo
+        FROM schedule_members sm
+        LEFT JOIN users u ON LOWER(u.username) = LOWER(sm.username)
+        WHERE sm.schedule_id = ANY(${ids})
+        ORDER BY sm.schedule_id ASC, sm.username ASC;
+      `;
+    }
+    const byId = new Map();
+    members.rows.forEach((m) => {
+      const sid = Number(m.schedule_id);
+      if (!byId.has(sid)) byId.set(sid, []);
+      byId.get(sid).push({ username: String(m.username), status: String(m.status || 'pending'), photo: String(m.photo || ''), respondedAt: m.responded_at || null });
+    });
+    const items = sched.rows.map((s) => ({
+      id: Number(s.id),
+      date: s.date,
+      createdBy: String(s.created_by || ''),
+      members: byId.get(Number(s.id)) || []
+    }));
+    return sendJson(res, 200, { ok: true, items });
+  }
+
+  if (req.method === 'POST') {
+    const admin = await requireAdmin(req);
+    if (!admin) return sendJson(res, 401, { ok: false, error: 'unauthorized' });
+    try {
+      const body = await readJsonBody(req);
+      const dateStr = String(body.date || '').trim();
+      const members = Array.isArray(body.members) ? body.members.map((x) => String(x || '').trim().toLowerCase()).filter(Boolean) : [];
+      if (!dateStr) return sendJson(res, 400, { ok: false, error: 'missing_date' });
+      if (members.length === 0) return sendJson(res, 400, { ok: false, error: 'missing_members' });
+      const created = await sql`INSERT INTO schedules (date, created_by) VALUES (${dateStr}, ${String(admin.username)}) RETURNING id;`;
+      const scheduleId = Number(created.rows[0].id);
+      for (const uname of members) {
+        await sql`INSERT INTO schedule_members (schedule_id, username, status) VALUES (${scheduleId}, ${uname}, 'pending') ON CONFLICT DO NOTHING;`;
+      }
+      return sendJson(res, 200, { ok: true, scheduleId });
+    } catch (e) {
+      return sendJson(res, 500, { ok: false, error: 'server_error', detail: String(e && e.message ? e.message : e) });
+    }
+  }
+
+  return methodNotAllowed(res, ['GET', 'POST']);
+}
+
+async function handleScheduleResponse(req, res) {
+  const user = await requireAuth(req);
+  if (!user) return sendJson(res, 401, { ok: false, error: 'unauthorized' });
+  if (req.method !== 'POST') return methodNotAllowed(res, ['POST']);
+  await ensureSchema();
+  try {
+    const body = await readJsonBody(req);
+    const scheduleId = Number(body.scheduleId);
+    const action = String(body.action || '').trim().toLowerCase();
+    if (!Number.isFinite(scheduleId) || scheduleId <= 0) return sendJson(res, 400, { ok: false, error: 'missing_schedule_id' });
+    if (action !== 'accept' && action !== 'decline') return sendJson(res, 400, { ok: false, error: 'invalid_action' });
+    const s = await sql`SELECT id, date FROM schedules WHERE id = ${scheduleId} LIMIT 1;`;
+    if (!s.rows[0]) return sendJson(res, 404, { ok: false, error: 'not_found' });
+    const target = await sql`SELECT username FROM schedule_members WHERE schedule_id = ${scheduleId} AND LOWER(username) = LOWER(${user.username}) LIMIT 1;`;
+    if (!target.rows[0]) return sendJson(res, 403, { ok: false, error: 'forbidden' });
+    await sql`UPDATE schedule_members SET status = ${action === 'accept' ? 'accepted' : 'declined'}, responded_at = NOW() WHERE schedule_id = ${scheduleId} AND LOWER(username) = LOWER(${user.username});`;
+    return sendJson(res, 200, { ok: true });
+  } catch {
+    return sendJson(res, 400, { ok: false, error: 'invalid_request' });
+  }
+}
+
+async function handleMyWeek(req, res) {
+  const user = await requireAuth(req);
+  if (!user) return sendJson(res, 401, { ok: false, error: 'unauthorized' });
+  await ensureSchema();
+  const now = new Date();
+  const day = now.getDay();
+  const diffToMonday = (day + 6) % 7;
+  const monday = new Date(now);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(monday.getDate() - diffToMonday);
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+  const mStr = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+  const sStr = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`;
+  const rows = await sql`
+    SELECT sm.status
+    FROM schedules s
+    JOIN schedule_members sm ON sm.schedule_id = s.id AND LOWER(sm.username) = LOWER(${user.username})
+    WHERE s.date >= ${mStr} AND s.date <= ${sStr}
+  `;
+  const has = rows.rows.some((r) => String(r.status || 'pending') !== 'declined');
+  return sendJson(res, 200, { ok: true, scheduledThisWeek: has });
+}
 module.exports = async (req, res) => {
   const route = routeFromReq(req);
 
@@ -915,6 +1036,9 @@ module.exports = async (req, res) => {
   if (route === 'chat-groups') return handleChatGroups(req, res);
   if (route === 'chat') return handleChat(req, res);
   if (route === 'chat-read') return handleChatRead(req, res);
+  if (route === 'schedules') return handleSchedules(req, res);
+  if (route === 'schedule-response') return handleScheduleResponse(req, res);
+  if (route === 'my-week') return handleMyWeek(req, res);
 
   return sendJson(res, 404, { ok: false, error: 'not_found' });
 };

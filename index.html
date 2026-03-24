@@ -87,6 +87,11 @@
             font-weight: 300;
         }
 
+        .duty-on {
+            outline: 3px solid #39ff14;
+            box-shadow: 0 0 12px #39ff14;
+        }
+
         .container {
             width: 100%;
             max-width: 500px;
@@ -1086,8 +1091,8 @@
         <div class="logo-text">Ministério <span>AMAR</span></div>
         <p style="margin: 5px 0 0 0; font-size: 12px; opacity: 0.8;">Juntos até a Eternidade</p>
         
-        <div id="userBadge" class="user-badge" style="display: none;">
-            <div style="width:26px; height:26px; border-radius:50%; overflow:hidden; background: rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center;">
+            <div id="userBadge" class="user-badge" style="display: none;">
+            <div id="headerProfileCircle" style="width:26px; height:26px; border-radius:50%; overflow:hidden; background: rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center;">
                 <img id="headerProfilePhoto" alt="Foto" style="width:100%; height:100%; object-fit:cover; display:none;">
                 <span id="headerProfileInitial" style="font-size: 12px; font-weight: 900; color: rgba(255,255,255,0.7);">?</span>
             </div>
@@ -1306,6 +1311,20 @@
                 </div>
 
                 <div class="panel-card">
+                    <label>Escalas (Dias)</label>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 8px;">
+                        Crie a escala de um dia e selecione os convocados.
+                    </div>
+                    <div style="margin-top: 12px;">
+                        <input id="adminScheduleDate" class="text-input" type="date" placeholder="Data">
+                        <div id="adminScheduleUsersList" class="admin-list" style="margin-top: 10px;"></div>
+                        <button id="adminCreateScheduleBtn" class="btn-send" style="padding: 10px; font-size: 14px; margin-top: 10px;">
+                            <span>Criar Escala</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="panel-card">
                     <label>App (Instalar)</label>
                     <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 8px;">
                         Android: o Chrome libera um botão de instalar quando o app é PWA.
@@ -1390,6 +1409,7 @@
         let adminNewUsername, adminNewIsAdmin, adminCreateUserBtn, adminUsersList;
         let adminMemberName, adminCreateMemberBtn, adminMembersList;
         let adminChatGroupName, adminChatCreateGroupBtn, adminChatGroupUsersList, adminChatGroupsList;
+        let adminScheduleDate, adminScheduleUsersList, adminCreateScheduleBtn;
         let adminInstallBtn, adminInstallStatus;
         let adminUserPhotoPreview, adminUserPhotoImg, adminUserPhotoInitial, adminUserPhotoName;
         let adminShowInactiveToggle;
@@ -1533,6 +1553,9 @@
              adminChatCreateGroupBtn = document.getElementById('adminChatCreateGroupBtn');
              adminChatGroupUsersList = document.getElementById('adminChatGroupUsersList');
              adminChatGroupsList = document.getElementById('adminChatGroupsList');
+             adminScheduleDate = document.getElementById('adminScheduleDate');
+             adminScheduleUsersList = document.getElementById('adminScheduleUsersList');
+             adminCreateScheduleBtn = document.getElementById('adminCreateScheduleBtn');
             adminInstallBtn = document.getElementById('adminInstallBtn');
             adminInstallStatus = document.getElementById('adminInstallStatus');
 
@@ -1721,6 +1744,9 @@
             if (adminChatCreateGroupBtn) {
                 adminChatCreateGroupBtn.addEventListener('click', adminCriarChatGrupo);
             }
+            if (adminCreateScheduleBtn) {
+                adminCreateScheduleBtn.addEventListener('click', adminCriarEscala);
+            }
         });
 
         // Lista de arquivos na pasta escalapronta (gerada automaticamente pelo Trae)
@@ -1842,6 +1868,15 @@
             const photo = result.data && result.data.profile ? result.data.profile.photo : '';
             profilePhotoDraft = String(photo || '');
             renderProfilePhoto(profilePhotoDraft);
+        }
+
+        async function atualizarDestaqueSemana() {
+            try {
+                const res = await apiJson('/api/my-week', { method: 'GET' });
+                const on = res && res.data && res.data.ok && Boolean(res.data.scheduledThisWeek);
+                const circle = document.getElementById('headerProfileCircle');
+                if (circle) circle.classList.toggle('duty-on', on);
+            } catch {}
         }
 
         async function salvarFotoPerfil() {
@@ -2635,6 +2670,60 @@
             adminChatGroups = Array.isArray(result.data.groups) ? result.data.groups : [];
         }
 
+        function adminRenderScheduleUsuarios() {
+            if (!adminScheduleUsersList) return;
+            adminScheduleUsersList.innerHTML = '';
+            const users = Array.isArray(adminUsers) ? adminUsers : [];
+            if (users.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'admin-item';
+                empty.innerHTML = '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhum usuário para selecionar.</div>';
+                adminScheduleUsersList.appendChild(empty);
+                return;
+            }
+            users.forEach((u) => {
+                const username = u && u.username ? String(u.username) : '';
+                if (!username) return;
+                const item = document.createElement('div');
+                item.className = 'admin-item';
+                item.innerHTML = `
+                    <div style="min-width:0;">
+                        <div class="admin-item-title">${escapeHtml(username)}</div>
+                        <div class="admin-item-sub">Convocar para o dia</div>
+                    </div>
+                    <label class="admin-toggle">
+                        <input type="checkbox" data-username="${escapeHtml(username)}">
+                        Incluir
+                    </label>
+                `;
+                adminScheduleUsersList.appendChild(item);
+            });
+        }
+
+        async function adminCriarEscala() {
+            if (!adminScheduleDate) return;
+            const date = adminScheduleDate.value;
+            if (!date) {
+                alert('Selecione uma data.');
+                return;
+            }
+            const selected = [];
+            adminScheduleUsersList.querySelectorAll('input[type="checkbox"][data-username]').forEach((el) => {
+                if (el.checked) selected.push(String(el.getAttribute('data-username') || ''));
+            });
+            if (selected.length === 0) {
+                alert('Selecione pelo menos 1 usuário.');
+                return;
+            }
+            const result = await apiJson('/api/schedules', { method: 'POST', body: JSON.stringify({ date, members: selected }) });
+            if (!result.ok || !result.data || !result.data.ok) {
+                alert('Erro ao criar escala.');
+                return;
+            }
+            adminScheduleDate.value = '';
+            adminRenderScheduleUsuarios();
+            alert('Escala criada com convocações.');
+        }
         function adminRenderChatGrupoUsuarios() {
             if (!adminChatGroupUsersList) return;
             adminChatGroupUsersList.innerHTML = '';
@@ -3096,6 +3185,7 @@
                     adminRenderChatGrupos();
                 }
                 await carregarPerfil();
+                await atualizarDestaqueSemana();
                 await carregarChatContatos();
                 await carregarChatThreads();
                 renderChatThreadsList();
@@ -3160,6 +3250,7 @@
                 adminRenderMembros();
                 adminRenderChatGrupoUsuarios();
                 adminRenderChatGrupos();
+                adminRenderScheduleUsuarios();
             } else if (viewName === 'profile') {
                 if (profileView) profileView.classList.add('active');
                 if (navProfile) navProfile.classList.add('active');

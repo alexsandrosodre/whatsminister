@@ -119,6 +119,25 @@ async function ensureSchema() {
       PRIMARY KEY (message_id, username)
     );
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS schedules (
+      id SERIAL PRIMARY KEY,
+      date DATE NOT NULL,
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS schedule_members (
+      schedule_id INT NOT NULL REFERENCES schedules(id) ON DELETE CASCADE,
+      username TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      responded_at TIMESTAMPTZ NULL,
+      PRIMARY KEY (schedule_id, username)
+    );
+  `;
 }
 
 module.exports = { sql, ensureSchema };
