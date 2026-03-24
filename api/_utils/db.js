@@ -63,6 +63,24 @@ async function ensureSchema() {
   `;
 
   await sql`ALTER TABLE repertoire ADD COLUMN IF NOT EXISTS lyrics TEXT NOT NULL DEFAULT '';`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id SERIAL PRIMARY KEY,
+      sender_username TEXT NOT NULL,
+      text TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS chat_reads (
+      message_id INT NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+      username TEXT NOT NULL,
+      read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (message_id, username)
+    );
+  `;
 }
 
 module.exports = { sql, ensureSchema };

@@ -632,6 +632,61 @@
             backdrop-filter: blur(8px);
         }
 
+        .chat-row {
+            display: flex;
+            width: 100%;
+        }
+
+        .chat-row.mine {
+            justify-content: flex-end;
+        }
+
+        .chat-row.theirs {
+            justify-content: flex-start;
+        }
+
+        .chat-bubble {
+            max-width: 86%;
+            padding: 10px 12px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.10);
+            background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.92);
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .chat-bubble.mine {
+            background: rgba(24, 90, 219, 0.25);
+            border-color: rgba(24, 90, 219, 0.35);
+        }
+
+        .chat-meta {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            justify-content: flex-end;
+            margin-top: 6px;
+            font-size: 10px;
+            color: rgba(255,255,255,0.65);
+        }
+
+        .chat-sender {
+            font-size: 11px;
+            font-weight: 800;
+            color: rgba(255,255,255,0.75);
+            margin-bottom: 6px;
+        }
+
+        .chat-ticks {
+            font-weight: 900;
+            letter-spacing: -1px;
+        }
+
+        .chat-ticks.seen {
+            color: #4fc3f7;
+        }
+
         .admin-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -877,6 +932,10 @@
                 <img id="headerProfilePhoto" alt="Foto" style="width:100%; height:100%; object-fit:cover; display:none;">
                 <span id="headerProfileInitial" style="font-size: 12px; font-weight: 900; color: rgba(255,255,255,0.7);">?</span>
             </div>
+            <span id="headerChatBtn" class="password-btn" onclick="switchView('chat')" style="display:none; position: relative;">
+                Mensagem
+                <span id="headerChatBadge" style="display:none; position:absolute; top:-6px; right:-10px; background: var(--accent-red); color: #fff; border-radius: 10px; padding: 0 5px; font-size: 10px; font-weight: 800; line-height: 16px;">0</span>
+            </span>
             <span id="userNameText">Logado</span>
             <span class="logout-btn" onclick="fazerLogout()">Sair</span>
         </div>
@@ -886,6 +945,10 @@
             <button id="navHome" class="nav-btn active" onclick="switchView('home')">Início</button>
             <button id="navSchedule" class="nav-btn" onclick="switchView('schedule')">Cronograma</button>
             <button id="navRepertoire" class="nav-btn" onclick="switchView('repertoire')">Repertório</button>
+            <button id="navChat" class="nav-btn" onclick="switchView('chat')">
+                Mensagem
+                <span id="navChatBadge" style="display:none; margin-left: 6px; background: var(--accent-red); color: #fff; border-radius: 10px; padding: 0 6px; font-size: 10px; font-weight: 800; line-height: 16px;">0</span>
+            </button>
             <button id="navProfile" class="nav-btn" onclick="switchView('profile')">Perfil</button>
             <button id="navAdmin" class="nav-btn" style="display:none" onclick="switchView('admin')">Admin</button>
         </nav>
@@ -952,6 +1015,19 @@
                 <label>Músicas Cadastradas</label>
                 <input id="repertoireSearch" class="text-input" type="text" placeholder="Buscar por nome ou letra" style="margin-top: 10px;">
                 <div id="repertoireList" class="repertoire-list"></div>
+            </div>
+        </div>
+
+        <div id="chatView" class="view-section">
+            <div class="panel-card" style="padding: 12px;">
+                <label>Mensagem</label>
+                <div id="chatList" style="margin-top: 10px; height: 55vh; overflow-y: auto; display:flex; flex-direction:column; gap:10px; padding-right: 6px;"></div>
+                <div style="margin-top: 12px; display:flex; gap:10px; align-items:flex-end;">
+                    <textarea id="chatInput" class="text-input" placeholder="Digite uma mensagem..." style="min-height: 42px; height: 42px; resize: none; flex:1;"></textarea>
+                    <button id="chatSendBtn" class="btn-send" style="padding: 10px 14px; font-size: 14px;">
+                        <span>Enviar</span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -1090,10 +1166,11 @@
 
         // Variáveis globais de elementos (inicializadas dentro do DOMContentLoaded)
         let messageArea, sendBtn, fileInput, preview, uploadLabel, smartSection, smartTitle, smartPreview, sendSmartBtn, mondayBadge, scalesGrid;
-        let loginOverlay, loginUser, loginPass, loginError, userBadge, userNameText, fullScheduleSection, fullScheduleGrid, headerLoginBtn;
+        let loginOverlay, loginUser, loginPass, loginError, userBadge, userNameText, headerChatBtn, headerChatBadge, fullScheduleSection, fullScheduleGrid, headerLoginBtn;
         let passwordOverlay, closePasswordOverlay, passwordHint, passwordError, currentPasswordInput, newPasswordInput, newPassword2Input;
-        let mainNav, homeView, scheduleView, repertoireView, profileView, adminView, navHome, navSchedule, navRepertoire, navProfile, navAdmin;
+        let mainNav, homeView, scheduleView, repertoireView, chatView, profileView, adminView, navHome, navSchedule, navRepertoire, navChat, navChatBadge, navProfile, navAdmin;
         let repertoireName, repertoireLink, repertoireLyrics, repertoireSearch, addRepertoireBtn, repertoireList;
+        let chatList, chatInput, chatSendBtn;
         let profilePhotoInput, profilePhotoPreview, profilePhotoPlaceholder, profileSavePhotoBtn, profileRemovePhotoBtn, profilePhotoMsg, profileUsername;
         let profilePhotoDraft = '';
         let lyricsModal, lyricsModalTitle, lyricsModalBody;
@@ -1101,6 +1178,11 @@
         let repertoireItems = [];
         let repertoireEditingId = null;
         let repertoireLyricsExpandedIds = new Set();
+        let chatParticipants = [];
+        let chatMessages = [];
+        let chatLastId = 0;
+        let chatPollingId = null;
+        let chatUnreadCount = 0;
         let deferredPwaPrompt = null;
         let pwaInstallAvailable = false;
         let pwaInstalled = false;
@@ -1191,6 +1273,8 @@
             lyricsModalBody = document.getElementById('lyricsModalBody');
             userBadge = document.getElementById('userBadge');
             userNameText = document.getElementById('userNameText');
+            headerChatBtn = document.getElementById('headerChatBtn');
+            headerChatBadge = document.getElementById('headerChatBadge');
             fullScheduleSection = document.getElementById('fullScheduleSection');
              fullScheduleGrid = document.getElementById('fullScheduleGrid');
              headerLoginBtn = document.getElementById('headerLoginBtn');
@@ -1203,6 +1287,9 @@
              navSchedule = document.getElementById('navSchedule');
              repertoireView = document.getElementById('repertoireView');
              navRepertoire = document.getElementById('navRepertoire');
+             chatView = document.getElementById('chatView');
+             navChat = document.getElementById('navChat');
+             navChatBadge = document.getElementById('navChatBadge');
              profileView = document.getElementById('profileView');
              navProfile = document.getElementById('navProfile');
              adminView = document.getElementById('adminView');
@@ -1213,6 +1300,9 @@
              repertoireSearch = document.getElementById('repertoireSearch');
              addRepertoireBtn = document.getElementById('addRepertoireBtn');
              repertoireList = document.getElementById('repertoireList');
+             chatList = document.getElementById('chatList');
+             chatInput = document.getElementById('chatInput');
+             chatSendBtn = document.getElementById('chatSendBtn');
              profilePhotoInput = document.getElementById('profilePhotoInput');
              profilePhotoPreview = document.getElementById('profilePhotoPreview');
              profilePhotoPlaceholder = document.getElementById('profilePhotoPlaceholder');
@@ -1367,6 +1457,26 @@
             updateAdminInstallUi();
 
             renderizarRepertorio();
+
+            if (chatSendBtn) {
+                chatSendBtn.addEventListener('click', enviarChatMensagem);
+            }
+            if (chatInput) {
+                chatInput.addEventListener('keydown', (e) => {
+                    if (e && e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        enviarChatMensagem();
+                    }
+                });
+            }
+            if (chatList) {
+                chatList.addEventListener('scroll', async () => {
+                    const nearBottom = (chatList.scrollHeight - chatList.scrollTop - chatList.clientHeight) < 40;
+                    if (nearBottom && isChatActive() && chatUnreadCount > 0) {
+                        await marcarChatLido();
+                    }
+                });
+            }
 
             if (adminCreateUserBtn) {
                 adminCreateUserBtn.addEventListener('click', adminCriarUsuario);
@@ -1692,6 +1802,185 @@
             deferredPwaPrompt = null;
             pwaInstallAvailable = false;
             updateAdminInstallUi();
+        }
+
+        function isChatActive() {
+            return Boolean(chatView && chatView.classList.contains('active'));
+        }
+
+        function formatChatTime(value) {
+            const d = value ? new Date(value) : null;
+            if (!d || Number.isNaN(d.getTime())) return '';
+            return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function updateChatBadge(count) {
+            chatUnreadCount = Number(count) || 0;
+            if (!navChatBadge) return;
+            if (chatUnreadCount > 0) {
+                navChatBadge.style.display = 'inline-block';
+                navChatBadge.innerText = String(chatUnreadCount > 99 ? '99+' : chatUnreadCount);
+            } else {
+                navChatBadge.style.display = 'none';
+                navChatBadge.innerText = '0';
+            }
+            if (headerChatBadge) {
+                if (chatUnreadCount > 0) {
+                    headerChatBadge.style.display = 'inline-block';
+                    headerChatBadge.innerText = String(chatUnreadCount > 99 ? '99+' : chatUnreadCount);
+                } else {
+                    headerChatBadge.style.display = 'none';
+                    headerChatBadge.innerText = '0';
+                }
+            }
+        }
+
+        function renderChat() {
+            if (!chatList) return;
+            chatList.innerHTML = '';
+
+            const total = Array.isArray(chatParticipants) ? chatParticipants.length : 0;
+            const mine = currentUser && currentUser.username ? String(currentUser.username) : '';
+
+            chatMessages.forEach((m) => {
+                const sender = m && m.sender ? String(m.sender) : '';
+                const isMine = sender === mine;
+                const row = document.createElement('div');
+                row.className = `chat-row ${isMine ? 'mine' : 'theirs'}`;
+
+                const bubble = document.createElement('div');
+                bubble.className = `chat-bubble ${isMine ? 'mine' : 'theirs'}`;
+
+                if (!isMine) {
+                    const senderEl = document.createElement('div');
+                    senderEl.className = 'chat-sender';
+                    senderEl.innerText = sender;
+                    bubble.appendChild(senderEl);
+                }
+
+                const textEl = document.createElement('div');
+                textEl.innerText = m && m.text ? String(m.text) : '';
+                bubble.appendChild(textEl);
+
+                const meta = document.createElement('div');
+                meta.className = 'chat-meta';
+
+                const timeEl = document.createElement('span');
+                timeEl.innerText = formatChatTime(m && m.createdAt ? m.createdAt : null);
+                meta.appendChild(timeEl);
+
+                if (isMine) {
+                    const readBy = Array.isArray(m && m.readBy) ? m.readBy.map((x) => String(x)) : [];
+                    const othersRead = readBy.filter((u) => u && u !== mine).length;
+                    const totalOthers = Math.max(0, total - 1);
+
+                    const ticks = document.createElement('span');
+                    ticks.className = 'chat-ticks';
+                    if (totalOthers > 0 && othersRead >= totalOthers) {
+                        ticks.classList.add('seen');
+                        ticks.innerText = '✓✓';
+                    } else if (othersRead > 0) {
+                        ticks.innerText = '✓✓';
+                    } else {
+                        ticks.innerText = '✓';
+                    }
+                    meta.appendChild(ticks);
+                }
+
+                bubble.appendChild(meta);
+                row.appendChild(bubble);
+                chatList.appendChild(row);
+            });
+        }
+
+        function scrollChatToBottom() {
+            if (!chatList) return;
+            chatList.scrollTop = chatList.scrollHeight;
+        }
+
+        async function marcarChatLido() {
+            if (!chatLastId) return;
+            await apiJson('/api/chat-read', { method: 'POST', body: JSON.stringify({ lastId: chatLastId }) });
+            updateChatBadge(0);
+        }
+
+        async function carregarChat({ sinceId, initial } = {}) {
+            const sid = Number.isFinite(Number(sinceId)) ? Number(sinceId) : 0;
+            const url = sid > 0 ? `/api/chat?sinceId=${sid}&limit=120` : `/api/chat?limit=60`;
+            const result = await apiJson(url, { method: 'GET' });
+            if (!result.ok || !result.data || !result.data.ok) return false;
+
+            chatParticipants = Array.isArray(result.data.participants) ? result.data.participants : [];
+            const messages = Array.isArray(result.data.messages) ? result.data.messages : [];
+            updateChatBadge(result.data.unreadCount);
+
+            if (initial) {
+                chatMessages = messages;
+            } else {
+                messages.forEach((m) => {
+                    const id = Number(m && m.id);
+                    if (!Number.isFinite(id)) return;
+                    if (!chatMessages.some((x) => Number(x && x.id) === id)) chatMessages.push(m);
+                });
+            }
+
+            chatLastId = chatMessages.reduce((acc, m) => {
+                const id = Number(m && m.id);
+                return Number.isFinite(id) ? Math.max(acc, id) : acc;
+            }, 0);
+
+            renderChat();
+            return true;
+        }
+
+        function startChatPolling() {
+            if (chatPollingId) return;
+            chatPollingId = setInterval(async () => {
+                const before = chatMessages.length ? chatLastId : 0;
+                const ok = await carregarChat({ sinceId: before, initial: false });
+                if (!ok) return;
+                if (isChatActive()) {
+                    scrollChatToBottom();
+                    await marcarChatLido();
+                } else if (chatUnreadCount > 0) {
+                    if (navigator && navigator.vibrate) navigator.vibrate(120);
+                }
+            }, 3000);
+        }
+
+        function stopChatPolling() {
+            if (!chatPollingId) return;
+            clearInterval(chatPollingId);
+            chatPollingId = null;
+        }
+
+        async function abrirChat() {
+            await carregarChat({ initial: true });
+            renderChat();
+            scrollChatToBottom();
+            await marcarChatLido();
+            startChatPolling();
+        }
+
+        async function enviarChatMensagem() {
+            if (!chatInput) return;
+            const text = chatInput.value.trim();
+            if (!text) return;
+            chatInput.value = '';
+
+            const result = await apiJson('/api/chat', { method: 'POST', body: JSON.stringify({ text }) });
+            if (!result.ok || !result.data || !result.data.ok) {
+                alert('Erro ao enviar mensagem.');
+                return;
+            }
+            const msg = result.data.message;
+            if (msg && Number.isFinite(Number(msg.id))) {
+                chatMessages.push(msg);
+                chatLastId = Math.max(chatLastId, Number(msg.id));
+                renderChat();
+                scrollChatToBottom();
+                await marcarChatLido();
+            }
         }
 
         async function carregarRepertorio() {
@@ -2116,11 +2405,13 @@
             if (isLogged) {
                 if (userBadge) userBadge.style.display = 'flex';
                 if (headerLoginBtn) headerLoginBtn.style.display = 'none';
+                if (headerChatBtn) headerChatBtn.style.display = 'inline';
                 if (mainNav) mainNav.style.display = 'flex';
                 if (sendSmartBtn) sendSmartBtn.style.display = 'flex';
                 renderizarCronogramaCompleto();
                 await carregarRepertorio();
                 renderizarRepertorio();
+                if (navChat) navChat.style.display = 'inline-block';
                 if (navProfile) navProfile.style.display = 'inline-block';
                 if (navAdmin) navAdmin.style.display = currentUser && currentUser.isAdmin ? 'inline-block' : 'none';
                 if (currentUser && currentUser.isAdmin) {
@@ -2130,6 +2421,8 @@
                     adminRenderMembros();
                 }
                 await carregarPerfil();
+                await carregarChat({ initial: chatMessages.length === 0 });
+                startChatPolling();
                 if (currentUser && currentUser.mustChangePassword) {
                     togglePasswordOverlay(true, true);
                 } else {
@@ -2138,10 +2431,14 @@
             } else {
                 if (userBadge) userBadge.style.display = 'none';
                 if (headerLoginBtn) headerLoginBtn.style.display = 'block';
+                if (headerChatBtn) headerChatBtn.style.display = 'none';
                 if (mainNav) mainNav.style.display = 'none';
                 if (sendSmartBtn) sendSmartBtn.style.display = 'none';
+                if (navChat) navChat.style.display = 'none';
                 if (navProfile) navProfile.style.display = 'none';
                 if (navAdmin) navAdmin.style.display = 'none';
+                stopChatPolling();
+                updateChatBadge(0);
                 togglePasswordOverlay(false);
                 switchView('home');
             }
@@ -2151,12 +2448,14 @@
             homeView.classList.remove('active');
             scheduleView.classList.remove('active');
             if (repertoireView) repertoireView.classList.remove('active');
+            if (chatView) chatView.classList.remove('active');
             if (profileView) profileView.classList.remove('active');
             if (adminView) adminView.classList.remove('active');
 
             navHome.classList.remove('active');
             navSchedule.classList.remove('active');
             if (navRepertoire) navRepertoire.classList.remove('active');
+            if (navChat) navChat.classList.remove('active');
             if (navProfile) navProfile.classList.remove('active');
             if (navAdmin) navAdmin.classList.remove('active');
 
@@ -2167,6 +2466,10 @@
                 if (repertoireView) repertoireView.classList.add('active');
                 if (navRepertoire) navRepertoire.classList.add('active');
                 renderizarRepertorio();
+            } else if (viewName === 'chat') {
+                if (chatView) chatView.classList.add('active');
+                if (navChat) navChat.classList.add('active');
+                abrirChat();
             } else if (viewName === 'admin') {
                 if (adminView) adminView.classList.add('active');
                 if (navAdmin) navAdmin.classList.add('active');
