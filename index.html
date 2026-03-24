@@ -1227,6 +1227,12 @@
                     </div>
                     <div style="flex:1; min-width:0;">
                         <div id="profileUsername" style="font-weight: 800;"></div>
+                        <div style="margin-top: 10px; display:flex; gap:12px; align-items:center;">
+                            <input id="profileNameInput" class="text-input" type="text" placeholder="Seu nome de usuário" style="flex:1; margin: 0;">
+                            <button id="profileSaveNameBtn" class="btn-send" style="padding: 10px; font-size: 14px; width: auto;">
+                                <span>Salvar Nome</span>
+                            </button>
+                        </div>
                         <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 4px;">Escolha uma foto (imagem) para seu perfil.</div>
                     </div>
                 </div>
@@ -1386,7 +1392,7 @@
         let mainNav, homeView, scheduleView, repertoireView, chatView, profileView, adminView, navHome, navSchedule, navRepertoire, navChat, navChatBadge, navProfile, navAdmin;
         let repertoireName, repertoireLink, repertoireLyrics, repertoireSearch, addRepertoireBtn, repertoireList;
         let chatList, chatInput, chatSendBtn, chatTabContacts, chatTabGroups, chatThreadsList, chatSelectedTitle, chatBackBtn, chatTopTitle, chatPicker, chatConversation;
-        let profilePhotoInput, profilePhotoPreview, profilePhotoPlaceholder, profileSavePhotoBtn, profileRemovePhotoBtn, profilePhotoMsg, profileUsername;
+        let profilePhotoInput, profilePhotoPreview, profilePhotoPlaceholder, profileSavePhotoBtn, profileRemovePhotoBtn, profilePhotoMsg, profileUsername, profileNameInput, profileSaveNameBtn;
         let profilePhotoDraft = '';
         let lyricsModal, lyricsModalTitle, lyricsModalBody;
         let currentUser = null;
@@ -1546,6 +1552,8 @@
              profileRemovePhotoBtn = document.getElementById('profileRemovePhotoBtn');
              profilePhotoMsg = document.getElementById('profilePhotoMsg');
              profileUsername = document.getElementById('profileUsername');
+             profileNameInput = document.getElementById('profileNameInput');
+             profileSaveNameBtn = document.getElementById('profileSaveNameBtn');
              dutyView = document.getElementById('dutyView');
              navDuty = document.getElementById('navDuty');
              dutyList = document.getElementById('dutyList');
@@ -1640,6 +1648,10 @@
 
             if (profileSavePhotoBtn) {
                 profileSavePhotoBtn.addEventListener('click', salvarFotoPerfil);
+            }
+
+            if (profileSaveNameBtn) {
+                profileSaveNameBtn.addEventListener('click', salvarNomePerfil);
             }
 
             if (profileRemovePhotoBtn) {
@@ -1873,6 +1885,7 @@
 
         async function carregarPerfil() {
             if (profileUsername) profileUsername.innerText = currentUser && currentUser.username ? currentUser.username : '';
+            if (profileNameInput) profileNameInput.value = currentUser && currentUser.username ? currentUser.username : '';
             const result = await apiJson('/api/profile', { method: 'GET' });
             if (!result.ok || !result.data || !result.data.ok) {
                 renderProfilePhoto('');
@@ -1881,6 +1894,29 @@
             const photo = result.data && result.data.profile ? result.data.profile.photo : '';
             profilePhotoDraft = String(photo || '');
             renderProfilePhoto(profilePhotoDraft);
+        }
+
+        async function salvarNomePerfil() {
+            if (!profileNameInput) return;
+            const name = String(profileNameInput.value || '').trim();
+            if (!name) {
+                showProfileMsg('Digite um nome.', true);
+                return;
+            }
+            const result = await apiJson('/api/profile-name', { method: 'POST', body: JSON.stringify({ name }) });
+            if (!result.ok || !result.data || !result.data.ok) {
+                const err = result && result.data && result.data.error ? String(result.data.error) : '';
+                if (err === 'username_taken') showProfileMsg('Esse nome já está em uso.', true);
+                else if (err === 'invalid_name') showProfileMsg('Nome inválido. Use letras/números e no mínimo 3 caracteres.', true);
+                else showProfileMsg('Erro ao salvar nome.', true);
+                return;
+            }
+            currentUser = result.data.user;
+            if (userNameText) userNameText.innerText = currentUser && currentUser.username ? currentUser.username : 'Logado';
+            if (profileUsername) profileUsername.innerText = currentUser && currentUser.username ? currentUser.username : '';
+            renderProfilePhoto(profilePhotoDraft);
+            await atualizarDestaqueSemana();
+            showProfileMsg('Nome atualizado.', false);
         }
 
         async function atualizarDestaqueSemana() {
@@ -1893,7 +1929,7 @@
         }
 
         async function carregarConvocacoes() {
-            const result = await apiJson('/api/schedules?days=90', { method: 'GET' });
+            const result = await apiJson('/api/schedules?days=90&mine=1', { method: 'GET' });
             if (!result.ok || !result.data || !result.data.ok) {
                 window._convocacoes = [];
                 return;
@@ -1924,7 +1960,7 @@
                 const members = Array.isArray(s && s.members) ? s.members : [];
                 const mine = currentUser && currentUser.username ? String(currentUser.username) : '';
                 const my = members.find((m) => String(m && m.username).toLowerCase() === mine.toLowerCase());
-                const status = my ? String(my.status || 'pending') : 'pending';
+                const status = my ? String(my.status || 'pending') : 'not_invited';
                 const statusLabel = status === 'accepted' ? 'aceito' : (status === 'declined' ? 'recusado' : 'pendente');
                 const item = document.createElement('div');
                 item.className = 'admin-item';
@@ -1932,13 +1968,18 @@
                     <div style="min-width:0;">
                         <div class="admin-item-title">Dia ${escapeHtml(dateBr)}</div>
                         <div class="admin-item-sub">Graça e paz de Cristo, você foi escalado para o dia ${escapeHtml(dateBr)}.</div>
-                        <div class="admin-item-sub">Resposta: ${escapeHtml(statusLabel)} (se não responder, entra na escala).</div>
+                        <div class="admin-item-sub">${status === 'not_invited' ? 'Você não foi convocado para este dia.' : `Resposta: ${escapeHtml(statusLabel)} (se não responder, entra na escala).`}</div>
                     </div>
                     <div style="display:flex; gap:12px; align-items:center;">
                         <span class="admin-action" role="button" tabindex="0" data-action="accept" data-id="${Number(s.id)}">Aceitar</span>
                         <span class="admin-action" role="button" tabindex="0" data-action="decline" data-id="${Number(s.id)}">Recusar</span>
                     </div>
                 `;
+                if (status === 'not_invited') {
+                    item.querySelectorAll('.admin-action[data-action][data-id]').forEach((el) => {
+                        el.style.display = 'none';
+                    });
+                }
 
                 const bindAction = (el) => {
                     const act = String(el.getAttribute('data-action') || '').trim();

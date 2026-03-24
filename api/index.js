@@ -290,6 +290,49 @@ async function handleProfile(req, res) {
   return methodNotAllowed(res, ['GET', 'PUT']);
 }
 
+async function handleProfileName(req, res) {
+  const user = await requireAuth(req);
+  if (!user) return sendJson(res, 401, { ok: false, error: 'unauthorized' });
+  if (req.method !== 'POST') return methodNotAllowed(res, ['POST']);
+
+  await ensureSchema();
+
+  try {
+    const body = await readJsonBody(req);
+    const raw = String(body.name || body.username || '').trim();
+    const next = raw.toLowerCase();
+    const prev = String(user.username || '').trim().toLowerCase();
+
+    if (!next) return sendJson(res, 400, { ok: false, error: 'missing_name' });
+    if (next.length < 3 || next.length > 30) return sendJson(res, 400, { ok: false, error: 'invalid_name' });
+    if (!/^[a-z0-9._-]+$/.test(next)) return sendJson(res, 400, { ok: false, error: 'invalid_name' });
+    if (next === prev) return sendJson(res, 200, { ok: true, user });
+
+    const exists = await sql`SELECT 1 FROM users WHERE LOWER(username) = LOWER(${next}) LIMIT 1;`;
+    if (exists.rows[0]) return sendJson(res, 409, { ok: false, error: 'username_taken' });
+
+    await sql`UPDATE users SET username = ${next} WHERE LOWER(username) = LOWER(${prev});`;
+    await sql`UPDATE members SET name = ${next} WHERE LOWER(name) = LOWER(${prev});`;
+    await sql`UPDATE chat_thread_members SET username = ${next} WHERE LOWER(username) = LOWER(${prev});`;
+    await sql`UPDATE chat_thread_messages SET sender_username = ${next} WHERE LOWER(sender_username) = LOWER(${prev});`;
+    await sql`UPDATE chat_thread_reads SET username = ${next} WHERE LOWER(username) = LOWER(${prev});`;
+    await sql`UPDATE chat_threads SET created_by = ${next} WHERE LOWER(created_by) = LOWER(${prev});`;
+    await sql`UPDATE schedules SET created_by = ${next} WHERE LOWER(created_by) = LOWER(${prev});`;
+    await sql`UPDATE schedule_members SET username = ${next} WHERE LOWER(username) = LOWER(${prev});`;
+    await sql`UPDATE chat_messages SET sender_username = ${next} WHERE LOWER(sender_username) = LOWER(${prev});`;
+    await sql`UPDATE chat_reads SET username = ${next} WHERE LOWER(username) = LOWER(${prev});`;
+
+    const isAdmin = Boolean(user.isAdmin);
+    const mustChangePassword = Boolean(user.mustChangePassword);
+    const token = createSessionToken({ username: next, isAdmin });
+    setCookie(res, 'wm_session', token, { httpOnly: true, sameSite: 'Lax', secure: isSecureEnv(), maxAge: 60 * 60 * 24 * 7 });
+
+    return sendJson(res, 200, { ok: true, user: { username: next, isAdmin, mustChangePassword } });
+  } catch (e) {
+    return sendJson(res, 500, { ok: false, error: 'server_error', detail: String(e && e.message ? e.message : e) });
+  }
+}
+
 async function handleMembers(req, res) {
   const admin = await requireAdmin(req);
   if (!admin) return sendJson(res, 401, { ok: false, error: 'unauthorized' });
@@ -903,6 +946,7 @@ async function handleSchedules(req, res) {
   await ensureSchema();
   const u = new URL(req.url, 'http://localhost');
   const days = Math.min(Math.max(Number(u.searchParams.get('days') || 30), 1), 180);
+  const mineOnly = String(u.searchParams.get('mine') || '').trim() === '1';
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const to = new Date(from);
@@ -913,7 +957,7 @@ async function handleSchedules(req, res) {
   if (req.method === 'GET') {
     const isAdmin = Boolean((await sql`SELECT is_admin FROM users WHERE LOWER(username) = LOWER(${user.username}) LIMIT 1;`).rows[0]?.is_admin);
     let sched = null;
-    if (isAdmin) {
+    if (isAdmin && !mineOnly) {
       sched = await sql`SELECT id, date, created_by, created_at FROM schedules WHERE date >= ${fromStr} AND date <= ${toStr} ORDER BY date ASC;`;
     } else {
       sched = await sql`
@@ -1027,6 +1071,7 @@ module.exports = async (req, res) => {
   if (route === 'users') return handleUsers(req, res);
   if (route === 'user-photo') return handleUserPhoto(req, res);
   if (route === 'profile') return handleProfile(req, res);
+  if (route === 'profile-name') return handleProfileName(req, res);
   if (route === 'members') return handleMembers(req, res);
   if (route === 'repertoire') return handleRepertoire(req, res);
   if (route === 'change-password') return handleChangePassword(req, res);
