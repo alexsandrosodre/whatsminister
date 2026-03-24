@@ -1,4 +1,4 @@
-const CACHE_NAME = 'whatsminister-v2';
+const CACHE_NAME = 'whatsminister-v3';
 const PRECACHE_URLS = ['/', '/index.html', '/manifest.webmanifest', '/mins/minislogo.png', '/mins/minislogoheader.png'];
 
 self.addEventListener('install', (event) => {
@@ -14,7 +14,12 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     Promise.all([
       caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))),
-      self.clients.claim()
+      self.clients.claim().then(async () => {
+        try {
+          const clients = await self.clients.matchAll({ type: 'window' });
+          clients.forEach((c) => c.postMessage({ type: 'RELOAD' }));
+        } catch {}
+      })
     ])
   );
 });
@@ -36,7 +41,7 @@ self.addEventListener('fetch', (event) => {
     (async () => {
       if (isNavigation) {
         try {
-          const res = await fetch(req);
+          const res = await fetch(req, { cache: 'no-store' });
           const okToCache = req.method === 'GET' && res && res.status === 200 && res.type === 'basic';
           if (okToCache) {
             const copy = res.clone();

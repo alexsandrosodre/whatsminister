@@ -1245,6 +1245,7 @@
     <div class="footer-info">
         Para usar como App no iPhone:<br>
         Toque no ícone <b>Compartilhar</b> e selecione <b>"Tela de Início"</b>.
+        <div id="buildInfo" style="margin-top: 10px; font-size: 11px; color: rgba(255,255,255,0.55);">Versão: carregando...</div>
     </div>
 
     <!-- Modal para Zoom da Imagem -->
@@ -1309,6 +1310,7 @@
         let adminInstallBtn, adminInstallStatus;
         let adminUserPhotoPreview, adminUserPhotoImg, adminUserPhotoInitial, adminUserPhotoName;
         let adminShowInactiveToggle;
+        const APP_BUILD = 'd60ff6d';
 
         // Autenticação e dados persistentes agora usam API (/api) + banco na Vercel
 
@@ -1358,6 +1360,8 @@
         };
 
         document.addEventListener('DOMContentLoaded', () => {
+            const buildInfo = document.getElementById('buildInfo');
+            if (buildInfo) buildInfo.innerText = `Versão: ${APP_BUILD}`;
             messageArea = document.getElementById('message');
             sendBtn = document.getElementById('sendBtn');
             fileInput = document.getElementById('fileInput');
@@ -1561,6 +1565,11 @@
 
                 navigator.serviceWorker.addEventListener('controllerchange', () => {
                     window.location.reload();
+                });
+
+                navigator.serviceWorker.addEventListener('message', (e) => {
+                    const msg = e && e.data ? e.data : null;
+                    if (msg && msg.type === 'RELOAD') window.location.reload();
                 });
             }
 
