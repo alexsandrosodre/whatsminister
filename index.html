@@ -377,6 +377,45 @@
             backdrop-filter: blur(10px);
         }
 
+        #lyricsModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(5, 10, 24, 0.95);
+            z-index: 2200;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .lyrics-modal-card {
+            width: 100%;
+            max-width: 800px;
+            max-height: 85vh;
+            overflow: hidden;
+            background-color: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 16px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        #lyricsModalBody {
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 14px;
+            color: rgba(255,255,255,0.9);
+            line-height: 1.45;
+        }
+
         .login-card {
             background-color: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(15px);
@@ -508,6 +547,57 @@
             background: var(--accent-blue);
             border-color: var(--accent-blue);
             font-weight: 600;
+        }
+
+        @media (max-width: 520px) {
+            header {
+                padding: 14px;
+            }
+
+            .logo-text {
+                font-size: 22px;
+                letter-spacing: 0.5px;
+            }
+
+            header p {
+                font-size: 11px !important;
+            }
+
+            .user-badge {
+                width: 100%;
+                justify-content: center;
+                flex-wrap: wrap;
+                gap: 10px;
+                padding: 8px 12px;
+            }
+
+            .header-login-btn {
+                width: 100%;
+                max-width: 320px;
+            }
+
+            .nav-tabs {
+                gap: 8px;
+                padding-top: 10px;
+                margin-top: 12px;
+                flex-wrap: wrap;
+            }
+
+            .nav-btn {
+                padding: 7px 12px;
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .logo-text {
+                font-size: 20px;
+            }
+
+            .nav-btn {
+                padding: 6px 10px;
+                font-size: 11px;
+            }
         }
 
         .schedule-layout {
@@ -752,6 +842,16 @@
         </div>
     </div>
 
+    <div id="lyricsModal">
+        <div class="lyrics-modal-card">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <div id="lyricsModalTitle" style="font-size: 16px; font-weight: 800; min-width: 0; overflow:hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
+                <span class="close-login" onclick="closeLyricsModal()">&times;</span>
+            </div>
+            <div id="lyricsModalBody"></div>
+        </div>
+    </div>
+
     <header>
         <div class="logo-text">Ministério <span>AMAR</span></div>
         <p style="margin: 5px 0 0 0; font-size: 12px; opacity: 0.8;">Juntos até a Eternidade</p>
@@ -947,6 +1047,7 @@
         let repertoireName, repertoireLink, repertoireLyrics, repertoireSearch, addRepertoireBtn, repertoireList;
         let profilePhotoInput, profilePhotoPreview, profilePhotoPlaceholder, profileSavePhotoBtn, profileRemovePhotoBtn, profilePhotoMsg, profileUsername;
         let profilePhotoDraft = '';
+        let lyricsModal, lyricsModalTitle, lyricsModalBody;
         let currentUser = null;
         let repertoireItems = [];
         let repertoireEditingId = null;
@@ -1029,6 +1130,9 @@
             currentPasswordInput = document.getElementById('currentPassword');
             newPasswordInput = document.getElementById('newPassword');
             newPassword2Input = document.getElementById('newPassword2');
+            lyricsModal = document.getElementById('lyricsModal');
+            lyricsModalTitle = document.getElementById('lyricsModalTitle');
+            lyricsModalBody = document.getElementById('lyricsModalBody');
             userBadge = document.getElementById('userBadge');
             userNameText = document.getElementById('userNameText');
             fullScheduleSection = document.getElementById('fullScheduleSection');
@@ -1141,6 +1245,10 @@
                     showProfileMsg('Foto removida.', false);
                 });
             }
+
+            document.addEventListener('keydown', (e) => {
+                if (e && e.key === 'Escape') closeLyricsModal();
+            });
 
             renderizarRepertorio();
 
@@ -1371,6 +1479,18 @@
             }
         }
 
+        function openLyricsModal(title, lyrics) {
+            if (!lyricsModal || !lyricsModalTitle || !lyricsModalBody) return;
+            lyricsModalTitle.innerText = String(title || '');
+            lyricsModalBody.innerText = String(lyrics || '');
+            lyricsModal.style.display = 'flex';
+        }
+
+        function closeLyricsModal() {
+            if (!lyricsModal) return;
+            lyricsModal.style.display = 'none';
+        }
+
         async function carregarRepertorio() {
             const result = await apiJson('/api/repertoire', { method: 'GET' });
             if (!result.ok || !result.data || !result.data.ok) {
@@ -1478,6 +1598,7 @@
                     <div class="repertoire-item-actions">
                         ${href ? `<a class="repertoire-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(href)}</a>` : `<span class="repertoire-link"></span>`}
                         ${safeLyrics ? `<span class="repertoire-toggle-lyrics" data-id="${safeId}">${isExpanded ? 'Ocultar letra' : 'Exibir letra'}</span>` : ``}
+                        ${safeLyrics ? `<span class="repertoire-toggle-lyrics" data-fullscreen-lyrics-id="${safeId}">Tela cheia</span>` : ``}
                         <span class="repertoire-edit" data-id="${safeId}">Editar</span>
                     </div>
                     ${safeLyrics ? `<div style="margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.75); white-space: pre-wrap; display: ${isExpanded ? 'block' : 'none'};">${escapeHtml(safeLyrics)}</div>` : ``}
@@ -1504,6 +1625,17 @@
                         repertoireLyricsExpandedIds.add(id);
                     }
                     renderizarRepertorio();
+                });
+            });
+
+            repertoireList.querySelectorAll('.repertoire-toggle-lyrics[data-fullscreen-lyrics-id]').forEach((el) => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = Number(el.getAttribute('data-fullscreen-lyrics-id'));
+                    if (!Number.isFinite(id)) return;
+                    const item = repertoireItems.find((x) => Number(x && x.id) === id);
+                    if (!item) return;
+                    openLyricsModal(item && item.name ? String(item.name) : 'Letra', item && item.lyrics ? String(item.lyrics) : '');
                 });
             });
         }
