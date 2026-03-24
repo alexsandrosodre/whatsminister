@@ -1114,6 +1114,7 @@
                 <span id="navChatBadge" style="display:none; margin-left: 6px; background: var(--accent-red); color: #fff; border-radius: 10px; padding: 0 6px; font-size: 10px; font-weight: 800; line-height: 16px;">0</span>
             </button>
             <button id="navProfile" class="nav-btn" onclick="switchView('profile')">Perfil</button>
+            <button id="navDuty" class="nav-btn" onclick="switchView('duty')" style="display:none">Convocações</button>
             <button id="navAdmin" class="nav-btn" style="display:none" onclick="switchView('admin')">Admin</button>
         </nav>
     </header>
@@ -1159,6 +1160,14 @@
                 <div id="fullScheduleGrid" class="quick-grid" style="margin-top: 8px; margin-bottom: 0;">
                     <!-- Preenchido via JS -->
                 </div>
+            </div>
+        </div>
+
+        <!-- VIEW: DUTY (Convocações do Usuário) -->
+        <div id="dutyView" class="view-section">
+            <div class="panel-card">
+                <label>Convocações</label>
+                <div id="dutyList" class="admin-list" style="margin-top: 10px;"></div>
             </div>
         </div>
 
@@ -1413,6 +1422,7 @@
         let adminInstallBtn, adminInstallStatus;
         let adminUserPhotoPreview, adminUserPhotoImg, adminUserPhotoInitial, adminUserPhotoName;
         let adminShowInactiveToggle;
+        let dutyView, navDuty, dutyList;
 
         // Autenticação e dados persistentes agora usam API (/api) + banco na Vercel
 
@@ -1536,6 +1546,9 @@
              profileRemovePhotoBtn = document.getElementById('profileRemovePhotoBtn');
              profilePhotoMsg = document.getElementById('profilePhotoMsg');
              profileUsername = document.getElementById('profileUsername');
+             dutyView = document.getElementById('dutyView');
+             navDuty = document.getElementById('navDuty');
+             dutyList = document.getElementById('dutyList');
              adminNewUsername = document.getElementById('adminNewUsername');
              adminNewIsAdmin = document.getElementById('adminNewIsAdmin');
              adminCreateUserBtn = document.getElementById('adminCreateUserBtn');
@@ -1877,6 +1890,64 @@
                 const circle = document.getElementById('headerProfileCircle');
                 if (circle) circle.classList.toggle('duty-on', on);
             } catch {}
+        }
+
+        async function carregarConvocacoes() {
+            const result = await apiJson('/api/schedules?days=90', { method: 'GET' });
+            if (!result.ok || !result.data || !result.data.ok) {
+                window._convocacoes = [];
+                return;
+            }
+            window._convocacoes = Array.isArray(result.data.items) ? result.data.items : [];
+        }
+
+        function renderConvocacoes() {
+            if (!dutyList) return;
+            dutyList.innerHTML = '';
+            const items = Array.isArray(window._convocacoes) ? window._convocacoes : [];
+            if (items.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'admin-item';
+                empty.innerHTML = '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhuma convocação.</div>';
+                dutyList.appendChild(empty);
+                return;
+            }
+            items.forEach((s) => {
+                const date = s && s.date ? String(s.date).slice(0, 10) : '';
+                const members = Array.isArray(s && s.members) ? s.members : [];
+                const mine = currentUser && currentUser.username ? String(currentUser.username) : '';
+                const my = members.find((m) => String(m && m.username).toLowerCase() === mine.toLowerCase());
+                const status = my ? String(my.status || 'pending') : 'pending';
+                const item = document.createElement('div');
+                item.className = 'admin-item';
+                item.innerHTML = `
+                    <div style="min-width:0;">
+                        <div class="admin-item-title">Dia ${escapeHtml(date)}</div>
+                        <div class="admin-item-sub">Seu status: ${escapeHtml(status)}</div>
+                    </div>
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <span class="admin-action" data-accept="${Number(s.id)}">Aceitar</span>
+                        <span class="admin-action" data-decline="${Number(s.id)}">Recusar</span>
+                    </div>
+                `;
+                item.querySelectorAll('.admin-action[data-accept]').forEach((el) => {
+                    el.addEventListener('click', async () => {
+                        await apiJson('/api/schedule-response', { method: 'POST', body: JSON.stringify({ scheduleId: Number(s.id), action: 'accept' }) });
+                        await carregarConvocacoes();
+                        renderConvocacoes();
+                        await atualizarDestaqueSemana();
+                    });
+                });
+                item.querySelectorAll('.admin-action[data-decline]').forEach((el) => {
+                    el.addEventListener('click', async () => {
+                        await apiJson('/api/schedule-response', { method: 'POST', body: JSON.stringify({ scheduleId: Number(s.id), action: 'decline' }) });
+                        await carregarConvocacoes();
+                        renderConvocacoes();
+                        await atualizarDestaqueSemana();
+                    });
+                });
+                dutyList.appendChild(item);
+            });
         }
 
         async function salvarFotoPerfil() {
@@ -3174,6 +3245,7 @@
                 renderizarRepertorio();
                 if (navChat) navChat.style.display = 'inline-block';
                 if (navProfile) navProfile.style.display = 'inline-block';
+                if (navDuty) navDuty.style.display = 'inline-block';
                 if (navAdmin) navAdmin.style.display = currentUser && currentUser.isAdmin ? 'inline-block' : 'none';
                 if (currentUser && currentUser.isAdmin) {
                     await adminCarregarUsuarios();
@@ -3239,6 +3311,11 @@
                 if (repertoireView) repertoireView.classList.add('active');
                 if (navRepertoire) navRepertoire.classList.add('active');
                 renderizarRepertorio();
+            } else if (viewName === 'duty') {
+                if (dutyView) dutyView.classList.add('active');
+                if (navDuty) navDuty.classList.add('active');
+                await carregarConvocacoes();
+                renderConvocacoes();
             } else if (viewName === 'chat') {
                 if (chatView) chatView.classList.add('active');
                 if (navChat) navChat.classList.add('active');
