@@ -1158,7 +1158,7 @@
                         <button id="chatTabContacts" class="nav-btn active" type="button">Contatos</button>
                         <button id="chatTabGroups" class="nav-btn" type="button">Grupos</button>
                     </div>
-                    <div id="chatThreadsList" style="margin-top: 10px; display:flex; flex-direction:column; gap:10px; padding-right: 6px;"></div>
+                    <div id="chatThreadsList" class="admin-list" style="margin-top: 10px; padding-right: 6px;"></div>
                 </div>
                 <div id="chatConversation" style="margin-top: 10px; display:none; flex:1; min-height:0; flex-direction:column;">
                     <div id="chatSelectedTitle" style="margin-top: 0; font-weight: 900; display:none;"></div>
@@ -2118,20 +2118,21 @@
                     item.className = 'admin-item';
                     item.style.cursor = 'pointer';
                     item.innerHTML = `
-                        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-                            <div style="display:flex; gap:12px; align-items:center; min-width:0;">
-                                <div class="chat-avatar">
-                                    <img alt="Foto">
-                                    <span>?</span>
-                                </div>
-                                <div style="min-width:0;">
-                                    <div class="admin-item-title">${escapeHtml(username)}</div>
-                                    <div class="admin-item-sub">Conversar</div>
-                                </div>
+                        <div style="display:flex; gap:12px; align-items:center; min-width:0;">
+                            <div class="chat-avatar">
+                                <img alt="Foto">
+                                <span>?</span>
                             </div>
+                            <div style="min-width:0;">
+                                <div class="admin-item-title">${escapeHtml(username)}</div>
+                                <div class="admin-item-sub">Conversar</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:12px; align-items:center;">
                             <span style="display:${unread > 0 ? 'inline-flex' : 'none'}; align-items:center; justify-content:center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--accent-red); color: #fff; font-size: 11px; font-weight: 900;">
                                 ${escapeHtml(unread > 99 ? '99+' : String(unread))}
                             </span>
+                            <span class="admin-action">Abrir</span>
                         </div>
                     `;
 
@@ -2176,14 +2177,15 @@
                 item.className = 'admin-item';
                 item.style.cursor = 'pointer';
                 item.innerHTML = `
-                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-                        <div style="min-width:0;">
-                            <div class="admin-item-title">${escapeHtml(name)}</div>
-                            <div class="admin-item-sub">Abrir grupo</div>
-                        </div>
+                    <div style="min-width:0;">
+                        <div class="admin-item-title">${escapeHtml(name)}</div>
+                        <div class="admin-item-sub">Abrir grupo</div>
+                    </div>
+                    <div style="display:flex; gap:12px; align-items:center;">
                         <span style="display:${unread > 0 ? 'inline-flex' : 'none'}; align-items:center; justify-content:center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--accent-red); color: #fff; font-size: 11px; font-weight: 900;">
                             ${escapeHtml(unread > 99 ? '99+' : String(unread))}
                         </span>
+                        <span class="admin-action">Abrir</span>
                     </div>
                 `;
 
