@@ -96,6 +96,12 @@
             gap: 20px;
         }
 
+        @media (min-width: 900px) {
+            .container {
+                max-width: 1100px;
+            }
+        }
+
         .input-group {
             display: flex;
             flex-direction: column;
@@ -910,6 +916,20 @@
 
         .view-section.active {
             display: flex;
+        }
+
+        /* Home em largura total no desktop e mobile */
+        #homeView.view-section.active {
+            width: 100%;
+        }
+        #homeView .panel-card {
+            width: 100%;
+        }
+        #homeView .upload-section {
+            width: 100%;
+        }
+        #homeView .quick-messages {
+            width: 100%;
         }
 
         body.chat-only {
