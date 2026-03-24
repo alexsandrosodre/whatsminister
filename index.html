@@ -80,6 +80,17 @@
             font-weight: 300;
         }
 
+        .header-photo {
+            width: 100%;
+            max-width: 420px;
+            height: 110px;
+            object-fit: contain;
+            display: block;
+            margin: 12px auto 0 auto;
+            opacity: 0.95;
+            filter: drop-shadow(0 6px 18px rgba(0,0,0,0.35));
+        }
+
         .container {
             width: 100%;
             max-width: 500px;
@@ -589,6 +600,11 @@
                 padding: 7px 12px;
                 font-size: 12px;
             }
+
+            .header-photo {
+                height: 84px;
+                margin-top: 10px;
+            }
         }
 
         @media (max-width: 360px) {
@@ -599,6 +615,10 @@
             .nav-btn {
                 padding: 6px 10px;
                 font-size: 11px;
+            }
+
+            .header-photo {
+                height: 72px;
             }
         }
 
@@ -862,6 +882,7 @@
     <header>
         <div class="logo-text">Ministério <span>AMAR</span></div>
         <p style="margin: 5px 0 0 0; font-size: 12px; opacity: 0.8;">Juntos até a Eternidade</p>
+        <img class="header-photo" src="/mins/minislogoheader.png" alt="Ministério AMAR">
         
         <div id="userBadge" class="user-badge" style="display: none;">
             <div style="width:26px; height:26px; border-radius:50%; overflow:hidden; background: rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center;">
@@ -1022,6 +1043,10 @@
                     <label>Membros</label>
                     <div class="repertoire-form">
                         <input id="adminMemberName" class="text-input" type="text" placeholder="Nome do membro">
+                        <label class="admin-toggle">
+                            <input id="adminShowInactiveToggle" type="checkbox">
+                            Mostrar inativos
+                        </label>
                         <button id="adminCreateMemberBtn" class="btn-send" style="padding: 10px; font-size: 14px;">
                             <span>Adicionar Membro</span>
                         </button>
@@ -1094,10 +1119,12 @@
         let adminUsers = [];
         let adminMembers = [];
         let adminMemberEditingId = null;
+        let adminShowInactiveMembers = false;
         let adminNewUsername, adminNewIsAdmin, adminCreateUserBtn, adminUsersList;
         let adminMemberName, adminCreateMemberBtn, adminMembersList;
         let adminInstallBtn, adminInstallStatus;
         let adminUserPhotoPreview, adminUserPhotoImg, adminUserPhotoInitial, adminUserPhotoName;
+        let adminShowInactiveToggle;
 
         // Autenticação e dados persistentes agora usam API (/api) + banco na Vercel
 
@@ -1217,8 +1244,13 @@
              adminMemberName = document.getElementById('adminMemberName');
              adminCreateMemberBtn = document.getElementById('adminCreateMemberBtn');
              adminMembersList = document.getElementById('adminMembersList');
+             adminShowInactiveToggle = document.getElementById('adminShowInactiveToggle');
             adminInstallBtn = document.getElementById('adminInstallBtn');
             adminInstallStatus = document.getElementById('adminInstallStatus');
+
+            if (adminShowInactiveToggle) {
+                adminShowInactiveToggle.checked = adminShowInactiveMembers;
+            }
 
              // Verificar se já está logado
             verificarSessao();
@@ -1333,6 +1365,14 @@
                         adminUserPhotoInitial.innerText = '?';
                     }
                     if (adminUserPhotoName) adminUserPhotoName.innerText = '';
+                });
+            }
+
+            if (adminShowInactiveToggle) {
+                adminShowInactiveToggle.addEventListener('change', async () => {
+                    adminShowInactiveMembers = Boolean(adminShowInactiveToggle.checked);
+                    await adminCarregarMembros();
+                    adminRenderMembros();
                 });
             }
 
@@ -1935,15 +1975,19 @@
             if (!adminMembersList) return;
             adminMembersList.innerHTML = '';
 
-            if (adminMembers.length === 0) {
+            const filteredMembers = adminShowInactiveMembers ? adminMembers : adminMembers.filter((m) => Boolean(m && m.active));
+
+            if (filteredMembers.length === 0) {
                 const empty = document.createElement('div');
                 empty.className = 'admin-item';
-                empty.innerHTML = '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhum membro cadastrado.</div>';
+                empty.innerHTML = adminMembers.length === 0
+                    ? '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhum membro cadastrado.</div>'
+                    : '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhum membro ativo para exibir.</div>';
                 adminMembersList.appendChild(empty);
                 return;
             }
 
-            adminMembers.forEach((m) => {
+            filteredMembers.forEach((m) => {
                 const item = document.createElement('div');
                 item.className = 'admin-item';
                 const id = Number(m && m.id);
