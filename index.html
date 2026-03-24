@@ -912,6 +912,54 @@
             display: flex;
         }
 
+        body.chat-only {
+            align-items: stretch;
+        }
+
+        body.chat-only header {
+            display: none;
+        }
+
+        body.chat-only .container {
+            max-width: 100%;
+            padding: 0;
+            height: 100vh;
+            gap: 0;
+        }
+
+        body.chat-only #chatView .panel-card {
+            border-radius: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        body.chat-only #chatThreadsList {
+            max-height: 180px;
+        }
+
+        body.chat-only #chatList {
+            height: auto !important;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .chat-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .chat-topbar-title {
+            font-weight: 900;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .member-list {
             display: flex;
             flex-wrap: wrap;
@@ -1078,6 +1126,10 @@
 
         <div id="chatView" class="view-section">
             <div class="panel-card" style="padding: 12px;">
+                <div class="chat-topbar">
+                    <button id="chatBackBtn" class="nav-btn" type="button">Voltar</button>
+                    <div id="chatTopTitle" class="chat-topbar-title">Chat</div>
+                </div>
                 <label>Chat</label>
                 <div style="margin-top: 10px; display:flex; gap:10px;">
                     <button id="chatTabContacts" class="nav-btn active" type="button">Contatos</button>
@@ -1249,7 +1301,7 @@
         let passwordOverlay, closePasswordOverlay, passwordHint, passwordError, currentPasswordInput, newPasswordInput, newPassword2Input;
         let mainNav, homeView, scheduleView, repertoireView, chatView, profileView, adminView, navHome, navSchedule, navRepertoire, navChat, navChatBadge, navProfile, navAdmin;
         let repertoireName, repertoireLink, repertoireLyrics, repertoireSearch, addRepertoireBtn, repertoireList;
-        let chatList, chatInput, chatSendBtn, chatTabContacts, chatTabGroups, chatThreadsList, chatSelectedTitle;
+        let chatList, chatInput, chatSendBtn, chatTabContacts, chatTabGroups, chatThreadsList, chatSelectedTitle, chatBackBtn, chatTopTitle;
         let profilePhotoInput, profilePhotoPreview, profilePhotoPlaceholder, profileSavePhotoBtn, profileRemovePhotoBtn, profilePhotoMsg, profileUsername;
         let profilePhotoDraft = '';
         let lyricsModal, lyricsModalTitle, lyricsModalBody;
@@ -1267,6 +1319,8 @@
         let chatLastId = 0;
         let chatPollingId = null;
         let chatUnreadCount = 0;
+        let currentViewName = 'home';
+        let lastNonChatView = 'home';
         let deferredPwaPrompt = null;
         let pwaInstallAvailable = false;
         let pwaInstalled = false;
@@ -1395,6 +1449,8 @@
              chatTabGroups = document.getElementById('chatTabGroups');
              chatThreadsList = document.getElementById('chatThreadsList');
              chatSelectedTitle = document.getElementById('chatSelectedTitle');
+             chatBackBtn = document.getElementById('chatBackBtn');
+             chatTopTitle = document.getElementById('chatTopTitle');
              profilePhotoInput = document.getElementById('profilePhotoInput');
              profilePhotoPreview = document.getElementById('profilePhotoPreview');
              profilePhotoPlaceholder = document.getElementById('profilePhotoPlaceholder');
@@ -1578,6 +1634,9 @@
             }
             if (chatTabGroups) {
                 chatTabGroups.addEventListener('click', () => setChatTab('groups'));
+            }
+            if (chatBackBtn) {
+                chatBackBtn.addEventListener('click', () => switchView(lastNonChatView || 'home'));
             }
 
             if (adminCreateUserBtn) {
@@ -2252,6 +2311,7 @@
             if (chatSelectedTitle) chatSelectedTitle.style.display = 'none';
             chatActiveThreadId = 0;
             chatActiveThreadLabel = '';
+            if (chatTopTitle) chatTopTitle.innerText = 'Chat';
             chatParticipants = [];
             chatMessages = [];
             chatLastId = 0;
@@ -2268,6 +2328,7 @@
             if (!Number.isFinite(id) || id <= 0) return;
             chatActiveThreadId = id;
             chatActiveThreadLabel = String(label || '');
+            if (chatTopTitle) chatTopTitle.innerText = chatActiveThreadLabel || 'Chat';
             chatParticipants = [];
             chatMessages = [];
             chatLastId = 0;
@@ -2980,6 +3041,12 @@
         }
 
         function switchView(viewName) {
+            if (viewName === 'chat' && currentViewName !== 'chat') {
+                lastNonChatView = currentViewName || 'home';
+            }
+            currentViewName = viewName;
+            document.body.classList.toggle('chat-only', viewName === 'chat');
+
             homeView.classList.remove('active');
             scheduleView.classList.remove('active');
             if (repertoireView) repertoireView.classList.remove('active');
