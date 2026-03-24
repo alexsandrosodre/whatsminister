@@ -3297,6 +3297,7 @@
                 if (sendSmartBtn) sendSmartBtn.style.display = 'none';
                 if (navChat) navChat.style.display = 'none';
                 if (navProfile) navProfile.style.display = 'none';
+                if (navDuty) navDuty.style.display = 'none';
                 if (navAdmin) navAdmin.style.display = 'none';
                 stopChatPolling();
                 updateChatBadge(0);
@@ -3316,6 +3317,7 @@
             scheduleView.classList.remove('active');
             if (repertoireView) repertoireView.classList.remove('active');
             if (chatView) chatView.classList.remove('active');
+            if (dutyView) dutyView.classList.remove('active');
             if (profileView) profileView.classList.remove('active');
             if (adminView) adminView.classList.remove('active');
 
@@ -3323,6 +3325,7 @@
             navSchedule.classList.remove('active');
             if (navRepertoire) navRepertoire.classList.remove('active');
             if (navChat) navChat.classList.remove('active');
+            if (navDuty) navDuty.classList.remove('active');
             if (navProfile) navProfile.classList.remove('active');
             if (navAdmin) navAdmin.classList.remove('active');
 
