@@ -10,6 +10,8 @@
     <meta name="description" content="App para envio de mensagens em grupo no WhatsApp">
     <link rel="icon" href="/mins/minislogo.png" type="image/png">
     <link rel="apple-touch-icon" href="/mins/minislogo.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#0a1931">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -993,6 +995,18 @@
                         </button>
                     </div>
                     <div id="adminUsersList" class="admin-list"></div>
+                    <div id="adminUserPhotoPreview" style="display:none; margin-top: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); border-radius: 12px; padding: 12px;">
+                        <div style="display:flex; gap:12px; align-items:center;">
+                            <div style="width:48px; height:48px; border-radius:50%; overflow:hidden; background: rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center;">
+                                <img id="adminUserPhotoImg" alt="Foto do usuário" style="width:100%; height:100%; object-fit:cover; display:none;">
+                                <span id="adminUserPhotoInitial" style="font-size: 16px; font-weight: 900; color: rgba(255,255,255,0.7);">?</span>
+                            </div>
+                            <div style="min-width:0;">
+                                <div id="adminUserPhotoName" style="font-weight: 800;"></div>
+                                <div style="font-size: 12px; color: rgba(255,255,255,0.6);">Pré-visualização da foto</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="panel-card">
@@ -1004,6 +1018,19 @@
                         </button>
                     </div>
                     <div id="adminMembersList" class="admin-list"></div>
+                </div>
+
+                <div class="panel-card">
+                    <label>App (Instalar)</label>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 8px;">
+                        Android: o Chrome libera um botão de instalar quando o app é PWA.
+                    </div>
+                    <div style="margin-top: 12px;">
+                        <button id="adminInstallBtn" class="btn-send" style="padding: 10px; font-size: 14px;">
+                            <span>Instalar App</span>
+                        </button>
+                    </div>
+                    <div id="adminInstallStatus" style="margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.75);"></div>
                 </div>
             </div>
         </div>
@@ -1052,11 +1079,16 @@
         let repertoireItems = [];
         let repertoireEditingId = null;
         let repertoireLyricsExpandedIds = new Set();
+        let deferredPwaPrompt = null;
+        let pwaInstallAvailable = false;
+        let pwaInstalled = false;
         let adminUsers = [];
         let adminMembers = [];
         let adminMemberEditingId = null;
         let adminNewUsername, adminNewIsAdmin, adminCreateUserBtn, adminUsersList;
         let adminMemberName, adminCreateMemberBtn, adminMembersList;
+        let adminInstallBtn, adminInstallStatus;
+        let adminUserPhotoPreview, adminUserPhotoImg, adminUserPhotoInitial, adminUserPhotoName;
 
         // Autenticação e dados persistentes agora usam API (/api) + banco na Vercel
 
@@ -1168,9 +1200,15 @@
              adminNewIsAdmin = document.getElementById('adminNewIsAdmin');
              adminCreateUserBtn = document.getElementById('adminCreateUserBtn');
              adminUsersList = document.getElementById('adminUsersList');
+             adminUserPhotoPreview = document.getElementById('adminUserPhotoPreview');
+             adminUserPhotoImg = document.getElementById('adminUserPhotoImg');
+             adminUserPhotoInitial = document.getElementById('adminUserPhotoInitial');
+             adminUserPhotoName = document.getElementById('adminUserPhotoName');
              adminMemberName = document.getElementById('adminMemberName');
              adminCreateMemberBtn = document.getElementById('adminCreateMemberBtn');
              adminMembersList = document.getElementById('adminMembersList');
+            adminInstallBtn = document.getElementById('adminInstallBtn');
+            adminInstallStatus = document.getElementById('adminInstallStatus');
 
              // Verificar se já está logado
             verificarSessao();
@@ -1219,17 +1257,18 @@
                 profilePhotoInput.addEventListener('change', async (e) => {
                     const file = e && e.target ? e.target.files && e.target.files[0] : null;
                     if (!file) return;
-                    if (file.size > 400 * 1024) {
-                        showProfileMsg('Imagem muito grande. Use até 400KB.', true);
-                        return;
-                    }
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                        profilePhotoDraft = String(reader.result || '');
+                    showProfileMsg('Processando imagem...', false);
+
+                    try {
+                        const dataUrl = await fileToResizedDataUrl(file, 256);
+                        profilePhotoDraft = dataUrl;
                         renderProfilePhoto(profilePhotoDraft);
                         showProfileMsg('Foto pronta para salvar.', false);
-                    };
-                    reader.readAsDataURL(file);
+                    } catch (e2) {
+                        const msg = e2 && e2.message ? String(e2.message) : '';
+                        if (msg === 'too_large') showProfileMsg('Imagem muito grande. Use uma menor.', true);
+                        else showProfileMsg('Erro ao processar a imagem. Tente outra foto.', true);
+                    }
                 });
             }
 
@@ -1249,6 +1288,30 @@
             document.addEventListener('keydown', (e) => {
                 if (e && e.key === 'Escape') closeLyricsModal();
             });
+
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            }
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPwaPrompt = e;
+                pwaInstallAvailable = true;
+                updateAdminInstallUi();
+            });
+
+            window.addEventListener('appinstalled', () => {
+                pwaInstalled = true;
+                deferredPwaPrompt = null;
+                pwaInstallAvailable = false;
+                updateAdminInstallUi();
+            });
+
+            if (adminInstallBtn) {
+                adminInstallBtn.addEventListener('click', instalarPwa);
+            }
+
+            updateAdminInstallUi();
 
             renderizarRepertorio();
 
@@ -1460,6 +1523,53 @@
             }
         }
 
+        function fileToDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result || ''));
+                reader.onerror = () => reject(new Error('read_error'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function loadImage(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error('img_error'));
+                img.src = src;
+            });
+        }
+
+        async function fileToResizedDataUrl(file, maxSize) {
+            const src = await fileToDataUrl(file);
+            const img = await loadImage(src);
+
+            const w = Number(img.naturalWidth || img.width);
+            const h = Number(img.naturalHeight || img.height);
+            if (!w || !h) throw new Error('invalid_image');
+
+            const scale = Math.min(1, maxSize / Math.max(w, h));
+            const tw = Math.max(1, Math.round(w * scale));
+            const th = Math.max(1, Math.round(h * scale));
+
+            const canvas = document.createElement('canvas');
+            canvas.width = tw;
+            canvas.height = th;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error('no_canvas');
+            ctx.drawImage(img, 0, 0, tw, th);
+
+            let quality = 0.88;
+            let out = canvas.toDataURL('image/jpeg', quality);
+            while (out.length > 600000 && quality > 0.6) {
+                quality -= 0.08;
+                out = canvas.toDataURL('image/jpeg', quality);
+            }
+            if (out.length > 600000) throw new Error('too_large');
+            return out;
+        }
+
         function escapeHtml(value) {
             return String(value)
                 .replace(/&/g, '&amp;')
@@ -1489,6 +1599,46 @@
         function closeLyricsModal() {
             if (!lyricsModal) return;
             lyricsModal.style.display = 'none';
+        }
+
+        function isIos() {
+            const ua = navigator && navigator.userAgent ? navigator.userAgent : '';
+            return /iPad|iPhone|iPod/i.test(ua);
+        }
+
+        function updateAdminInstallUi() {
+            if (!adminInstallBtn || !adminInstallStatus) return;
+            if (pwaInstalled) {
+                adminInstallBtn.disabled = true;
+                adminInstallStatus.innerText = 'App já instalado.';
+                return;
+            }
+            if (isIos()) {
+                adminInstallBtn.disabled = true;
+                adminInstallStatus.innerText = 'iPhone: use Safari > Compartilhar > Adicionar à Tela de Início.';
+                return;
+            }
+            if (pwaInstallAvailable && deferredPwaPrompt) {
+                adminInstallBtn.disabled = false;
+                adminInstallStatus.innerText = 'Pronto para instalar. Clique em “Instalar App”.';
+                return;
+            }
+            adminInstallBtn.disabled = true;
+            adminInstallStatus.innerText = 'Abra no Chrome Android e aguarde aparecer a opção de instalar.';
+        }
+
+        async function instalarPwa() {
+            if (!deferredPwaPrompt) {
+                updateAdminInstallUi();
+                return;
+            }
+            try {
+                deferredPwaPrompt.prompt();
+                await deferredPwaPrompt.userChoice;
+            } catch {}
+            deferredPwaPrompt = null;
+            pwaInstallAvailable = false;
+            updateAdminInstallUi();
         }
 
         async function carregarRepertorio() {
@@ -1683,6 +1833,7 @@
                         <div class="admin-item-sub">${isAdmin ? 'Admin' : 'Usuário'}${mustChange ? ' • Trocar senha' : ''}</div>
                     </div>
                     <div style="display:flex; gap:12px; align-items:center;">
+                        <span class="admin-action" data-show-user-photo-id="${id}">Exibir</span>
                         <span class="admin-action" data-reset-user-id="${id}">Reset senha</span>
                         <span class="admin-action" data-delete-user-id="${id}">Excluir</span>
                     </div>
@@ -1701,6 +1852,33 @@
                     }
                     await adminCarregarUsuarios();
                     adminRenderUsuarios();
+                });
+            });
+
+            adminUsersList.querySelectorAll('.admin-action[data-show-user-photo-id]').forEach((el) => {
+                el.addEventListener('click', async () => {
+                    const id = Number(el.getAttribute('data-show-user-photo-id'));
+                    if (!Number.isFinite(id)) return;
+                    const result = await apiJson(`/api/user-photo?id=${id}`, { method: 'GET' });
+                    if (!result.ok || !result.data || !result.data.ok) {
+                        alert('Erro ao carregar a foto.');
+                        return;
+                    }
+                    const username = result.data && result.data.user ? String(result.data.user.username || '') : '';
+                    const photo = result.data && result.data.user ? String(result.data.user.photo || '') : '';
+
+                    if (adminUserPhotoPreview) adminUserPhotoPreview.style.display = 'block';
+                    if (adminUserPhotoName) adminUserPhotoName.innerText = username;
+                    if (photo && adminUserPhotoImg && adminUserPhotoInitial) {
+                        adminUserPhotoImg.src = photo;
+                        adminUserPhotoImg.style.display = 'block';
+                        adminUserPhotoInitial.style.display = 'none';
+                    } else if (adminUserPhotoImg && adminUserPhotoInitial) {
+                        adminUserPhotoImg.removeAttribute('src');
+                        adminUserPhotoImg.style.display = 'none';
+                        adminUserPhotoInitial.style.display = 'inline';
+                        adminUserPhotoInitial.innerText = username ? username.slice(0, 1).toUpperCase() : '?';
+                    }
                 });
             });
 

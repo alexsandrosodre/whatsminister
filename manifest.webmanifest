@@ -1,0 +1,25 @@
+{
+  "name": "WhatsMinister",
+  "short_name": "WhatsMinister",
+  "description": "Ministério de Louvor AMAR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a1931",
+  "theme_color": "#0a1931",
+  "icons": [
+    {
+      "src": "/mins/minislogo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/mins/minislogo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
+
