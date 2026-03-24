@@ -758,7 +758,6 @@
         
         <div id="userBadge" class="user-badge" style="display: none;">
             <span id="userNameText">Logado</span>
-            <span class="password-btn" onclick="togglePasswordOverlay(true)">Senha</span>
             <span class="logout-btn" onclick="fazerLogout()">Sair</span>
         </div>
         <button id="headerLoginBtn" class="header-login-btn" onclick="toggleLogin(true)">Entrar</button>
@@ -767,6 +766,7 @@
             <button id="navHome" class="nav-btn active" onclick="switchView('home')">Início</button>
             <button id="navSchedule" class="nav-btn" onclick="switchView('schedule')">Cronograma</button>
             <button id="navRepertoire" class="nav-btn" onclick="switchView('repertoire')">Repertório</button>
+            <button id="navProfile" class="nav-btn" onclick="switchView('profile')">Perfil</button>
             <button id="navAdmin" class="nav-btn" style="display:none" onclick="switchView('admin')">Admin</button>
         </nav>
     </header>
@@ -832,6 +832,44 @@
                 <label>Músicas Cadastradas</label>
                 <input id="repertoireSearch" class="text-input" type="text" placeholder="Buscar por nome ou letra" style="margin-top: 10px;">
                 <div id="repertoireList" class="repertoire-list"></div>
+            </div>
+        </div>
+
+        <div id="profileView" class="view-section">
+            <div class="panel-card">
+                <label>Perfil</label>
+                <div style="display:flex; gap:16px; align-items:center; margin-top: 10px;">
+                    <div style="width:72px; height:72px; border-radius:50%; overflow:hidden; background: rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center;">
+                        <img id="profilePhotoPreview" alt="Foto do perfil" style="width:100%; height:100%; object-fit:cover; display:none;">
+                        <div id="profilePhotoPlaceholder" style="font-size: 22px; font-weight: 800; color: rgba(255,255,255,0.7);">?</div>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <div id="profileUsername" style="font-weight: 800;"></div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 4px;">Escolha uma foto (imagem) para seu perfil.</div>
+                    </div>
+                </div>
+                <div style="margin-top: 12px; display:flex; gap:12px; align-items:center;">
+                    <input id="profilePhotoInput" type="file" accept="image/*" style="flex:1;">
+                    <button id="profileSavePhotoBtn" class="btn-send" style="padding: 10px; font-size: 14px;">
+                        <span>Salvar Foto</span>
+                    </button>
+                </div>
+                <div style="margin-top: 10px;">
+                    <button id="profileRemovePhotoBtn" class="btn-send" style="padding: 10px; font-size: 14px;">
+                        <span>Remover Foto</span>
+                    </button>
+                </div>
+                <p id="profilePhotoMsg" style="margin-top: 10px; font-size: 12px; display:none;"></p>
+            </div>
+
+            <div class="panel-card">
+                <label>Senha</label>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 8px;">A troca de senha fica disponível aqui no seu perfil.</div>
+                <div style="margin-top: 12px;">
+                    <button class="btn-send" style="padding: 10px; font-size: 14px;" onclick="togglePasswordOverlay(true)">
+                        <span>Alterar Senha</span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -901,8 +939,10 @@
         let messageArea, sendBtn, fileInput, preview, uploadLabel, smartSection, smartTitle, smartPreview, sendSmartBtn, mondayBadge, scalesGrid;
         let loginOverlay, loginUser, loginPass, loginError, userBadge, userNameText, fullScheduleSection, fullScheduleGrid, headerLoginBtn;
         let passwordOverlay, closePasswordOverlay, passwordHint, passwordError, currentPasswordInput, newPasswordInput, newPassword2Input;
-        let mainNav, homeView, scheduleView, repertoireView, adminView, navHome, navSchedule, navRepertoire, navAdmin;
+        let mainNav, homeView, scheduleView, repertoireView, profileView, adminView, navHome, navSchedule, navRepertoire, navProfile, navAdmin;
         let repertoireName, repertoireLink, repertoireLyrics, repertoireSearch, addRepertoireBtn, repertoireList;
+        let profilePhotoInput, profilePhotoPreview, profilePhotoPlaceholder, profileSavePhotoBtn, profileRemovePhotoBtn, profilePhotoMsg, profileUsername;
+        let profilePhotoDraft = '';
         let currentUser = null;
         let repertoireItems = [];
         let repertoireEditingId = null;
@@ -999,6 +1039,8 @@
              navSchedule = document.getElementById('navSchedule');
              repertoireView = document.getElementById('repertoireView');
              navRepertoire = document.getElementById('navRepertoire');
+             profileView = document.getElementById('profileView');
+             navProfile = document.getElementById('navProfile');
              adminView = document.getElementById('adminView');
              navAdmin = document.getElementById('navAdmin');
              repertoireName = document.getElementById('repertoireName');
@@ -1007,6 +1049,13 @@
              repertoireSearch = document.getElementById('repertoireSearch');
              addRepertoireBtn = document.getElementById('addRepertoireBtn');
              repertoireList = document.getElementById('repertoireList');
+             profilePhotoInput = document.getElementById('profilePhotoInput');
+             profilePhotoPreview = document.getElementById('profilePhotoPreview');
+             profilePhotoPlaceholder = document.getElementById('profilePhotoPlaceholder');
+             profileSavePhotoBtn = document.getElementById('profileSavePhotoBtn');
+             profileRemovePhotoBtn = document.getElementById('profileRemovePhotoBtn');
+             profilePhotoMsg = document.getElementById('profilePhotoMsg');
+             profileUsername = document.getElementById('profileUsername');
              adminNewUsername = document.getElementById('adminNewUsername');
              adminNewIsAdmin = document.getElementById('adminNewIsAdmin');
              adminCreateUserBtn = document.getElementById('adminCreateUserBtn');
@@ -1056,6 +1105,37 @@
 
             if (repertoireSearch) {
                 repertoireSearch.addEventListener('input', renderizarRepertorio);
+            }
+
+            if (profilePhotoInput) {
+                profilePhotoInput.addEventListener('change', async (e) => {
+                    const file = e && e.target ? e.target.files && e.target.files[0] : null;
+                    if (!file) return;
+                    if (file.size > 400 * 1024) {
+                        showProfileMsg('Imagem muito grande. Use até 400KB.', true);
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        profilePhotoDraft = String(reader.result || '');
+                        renderProfilePhoto(profilePhotoDraft);
+                        showProfileMsg('Foto pronta para salvar.', false);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            if (profileSavePhotoBtn) {
+                profileSavePhotoBtn.addEventListener('click', salvarFotoPerfil);
+            }
+
+            if (profileRemovePhotoBtn) {
+                profileRemovePhotoBtn.addEventListener('click', async () => {
+                    profilePhotoDraft = '';
+                    await apiJson('/api/profile', { method: 'PUT', body: JSON.stringify({ photo: '' }) });
+                    await carregarPerfil();
+                    showProfileMsg('Foto removida.', false);
+                });
             }
 
             renderizarRepertorio();
@@ -1135,8 +1215,59 @@
         async function fazerLogout() {
             await fetch('/api/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
             currentUser = null;
+            profilePhotoDraft = '';
             switchView('home');
             await verificarSessao();
+        }
+
+        function showProfileMsg(text, isError) {
+            if (!profilePhotoMsg) return;
+            profilePhotoMsg.style.display = 'block';
+            profilePhotoMsg.style.color = isError ? 'var(--accent-red)' : 'rgba(255,255,255,0.75)';
+            profilePhotoMsg.innerText = String(text || '');
+        }
+
+        function renderProfilePhoto(photo) {
+            if (!profilePhotoPreview || !profilePhotoPlaceholder) return;
+            const value = String(photo || '');
+            if (value) {
+                profilePhotoPreview.src = value;
+                profilePhotoPreview.style.display = 'block';
+                profilePhotoPlaceholder.style.display = 'none';
+            } else {
+                profilePhotoPreview.removeAttribute('src');
+                profilePhotoPreview.style.display = 'none';
+                profilePhotoPlaceholder.style.display = 'block';
+                profilePhotoPlaceholder.innerText = currentUser && currentUser.username ? String(currentUser.username).slice(0, 1).toUpperCase() : '?';
+            }
+        }
+
+        async function carregarPerfil() {
+            if (profileUsername) profileUsername.innerText = currentUser && currentUser.username ? currentUser.username : '';
+            const result = await apiJson('/api/profile', { method: 'GET' });
+            if (!result.ok || !result.data || !result.data.ok) {
+                renderProfilePhoto('');
+                return;
+            }
+            const photo = result.data && result.data.profile ? result.data.profile.photo : '';
+            profilePhotoDraft = String(photo || '');
+            renderProfilePhoto(profilePhotoDraft);
+        }
+
+        async function salvarFotoPerfil() {
+            if (!profilePhotoDraft) {
+                showProfileMsg('Selecione uma imagem primeiro.', true);
+                return;
+            }
+            const result = await apiJson('/api/profile', { method: 'PUT', body: JSON.stringify({ photo: profilePhotoDraft }) });
+            if (!result.ok || !result.data || !result.data.ok) {
+                const err = result && result.data && result.data.error ? String(result.data.error) : '';
+                if (err === 'photo_too_large') showProfileMsg('Imagem muito grande. Use uma menor.', true);
+                else showProfileMsg('Erro ao salvar a foto.', true);
+                return;
+            }
+            await carregarPerfil();
+            showProfileMsg('Foto salva.', false);
         }
 
         function togglePasswordOverlay(show, force = false) {
@@ -1603,6 +1734,7 @@
                 renderizarCronogramaCompleto();
                 await carregarRepertorio();
                 renderizarRepertorio();
+                if (navProfile) navProfile.style.display = 'inline-block';
                 if (navAdmin) navAdmin.style.display = currentUser && currentUser.isAdmin ? 'inline-block' : 'none';
                 if (currentUser && currentUser.isAdmin) {
                     await adminCarregarUsuarios();
@@ -1610,6 +1742,7 @@
                     adminRenderUsuarios();
                     adminRenderMembros();
                 }
+                await carregarPerfil();
                 if (currentUser && currentUser.mustChangePassword) {
                     togglePasswordOverlay(true, true);
                 } else {
@@ -1620,6 +1753,7 @@
                 if (headerLoginBtn) headerLoginBtn.style.display = 'block';
                 if (mainNav) mainNav.style.display = 'none';
                 if (sendSmartBtn) sendSmartBtn.style.display = 'none';
+                if (navProfile) navProfile.style.display = 'none';
                 if (navAdmin) navAdmin.style.display = 'none';
                 togglePasswordOverlay(false);
                 switchView('home');
@@ -1630,11 +1764,13 @@
             homeView.classList.remove('active');
             scheduleView.classList.remove('active');
             if (repertoireView) repertoireView.classList.remove('active');
+            if (profileView) profileView.classList.remove('active');
             if (adminView) adminView.classList.remove('active');
 
             navHome.classList.remove('active');
             navSchedule.classList.remove('active');
             if (navRepertoire) navRepertoire.classList.remove('active');
+            if (navProfile) navProfile.classList.remove('active');
             if (navAdmin) navAdmin.classList.remove('active');
 
             if (viewName === 'schedule') {
@@ -1649,6 +1785,10 @@
                 if (navAdmin) navAdmin.classList.add('active');
                 adminRenderUsuarios();
                 adminRenderMembros();
+            } else if (viewName === 'profile') {
+                if (profileView) profileView.classList.add('active');
+                if (navProfile) navProfile.classList.add('active');
+                carregarPerfil();
             } else {
                 homeView.classList.add('active');
                 navHome.classList.add('active');

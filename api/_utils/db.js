@@ -34,11 +34,13 @@ async function ensureSchema() {
       password_hash TEXT NOT NULL,
       is_admin BOOLEAN NOT NULL DEFAULT FALSE,
       must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
+      profile_photo TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `;
 
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo TEXT NOT NULL DEFAULT '';`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS members (
