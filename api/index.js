@@ -906,7 +906,7 @@ async function handleChat(req, res) {
     }
   }
 
-  return methodNotAllowed(res, ['GET', 'POST']);
+  return methodNotAllowed(res, ['GET', 'POST', 'PUT']);
 }
 
 async function handleChatRead(req, res) {
@@ -1009,6 +1009,41 @@ async function handleSchedules(req, res) {
         await sql`INSERT INTO schedule_members (schedule_id, username, status) VALUES (${scheduleId}, ${uname}, 'pending') ON CONFLICT DO NOTHING;`;
       }
       return sendJson(res, 200, { ok: true, scheduleId });
+    } catch (e) {
+      return sendJson(res, 500, { ok: false, error: 'server_error', detail: String(e && e.message ? e.message : e) });
+    }
+  }
+
+  if (req.method === 'PUT') {
+    const admin = await requireAdmin(req);
+    if (!admin) return sendJson(res, 401, { ok: false, error: 'unauthorized' });
+    try {
+      const body = await readJsonBody(req);
+      const scheduleId = Number(body.scheduleId);
+      if (!Number.isFinite(scheduleId) || scheduleId <= 0) return sendJson(res, 400, { ok: false, error: 'missing_schedule_id' });
+
+      const addMembersRaw = Array.isArray(body.addMembers) ? body.addMembers : [];
+      const removeMembersRaw = Array.isArray(body.removeMembers) ? body.removeMembers : [];
+      const addMembers = addMembersRaw.map((x) => String(x || '').trim().toLowerCase()).filter(Boolean);
+      const removeMembers = removeMembersRaw.map((x) => String(x || '').trim().toLowerCase()).filter(Boolean);
+
+      const existsSchedule = await sql`SELECT id FROM schedules WHERE id = ${Math.trunc(scheduleId)} LIMIT 1;`;
+      if (!existsSchedule.rows[0]) return sendJson(res, 404, { ok: false, error: 'not_found' });
+
+      if (removeMembers.length > 0) {
+        await sql`DELETE FROM schedule_members WHERE schedule_id = ${Math.trunc(scheduleId)} AND LOWER(username) = ANY(${removeMembers});`;
+      }
+
+      if (addMembers.length > 0) {
+        const usersResult = await sql`SELECT username FROM users WHERE LOWER(username) = ANY(${addMembers});`;
+        const existing = new Set(usersResult.rows.map((r) => String(r.username).toLowerCase()));
+        const finalAdd = addMembers.filter((u) => existing.has(u));
+        for (const uname of finalAdd) {
+          await sql`INSERT INTO schedule_members (schedule_id, username, status) VALUES (${Math.trunc(scheduleId)}, ${uname}, 'pending') ON CONFLICT DO NOTHING;`;
+        }
+      }
+
+      return sendJson(res, 200, { ok: true });
     } catch (e) {
       return sendJson(res, 500, { ok: false, error: 'server_error', detail: String(e && e.message ? e.message : e) });
     }

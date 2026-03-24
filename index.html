@@ -1340,6 +1340,19 @@
                 </div>
 
                 <div class="panel-card">
+                    <label>Convocações (Status)</label>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 8px;">
+                        Veja quem aceitou/recusou e adicione outras pessoas se necessário.
+                    </div>
+                    <div style="margin-top: 12px;">
+                        <button id="adminRefreshSchedulesBtn" class="btn-send" style="padding: 10px; font-size: 14px;">
+                            <span>Atualizar Lista</span>
+                        </button>
+                        <div id="adminScheduleStatusList" class="admin-list" style="margin-top: 12px;"></div>
+                    </div>
+                </div>
+
+                <div class="panel-card">
                     <label>App (Instalar)</label>
                     <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 8px;">
                         Android: o Chrome libera um botão de instalar quando o app é PWA.
@@ -1417,6 +1430,7 @@
         let adminUsers = [];
         let adminMembers = [];
         let adminChatGroups = [];
+        let adminSchedules = [];
         let adminChatGroupSelectedUsers = new Set();
         let adminChatGroupEditingId = null;
         let adminMemberEditingId = null;
@@ -1424,7 +1438,7 @@
         let adminNewUsername, adminNewIsAdmin, adminCreateUserBtn, adminUsersList;
         let adminMemberName, adminCreateMemberBtn, adminMembersList;
         let adminChatGroupName, adminChatCreateGroupBtn, adminChatGroupUsersList, adminChatGroupsList;
-        let adminScheduleDate, adminScheduleUsersList, adminCreateScheduleBtn;
+        let adminScheduleDate, adminScheduleUsersList, adminCreateScheduleBtn, adminRefreshSchedulesBtn, adminScheduleStatusList;
         let adminInstallBtn, adminInstallStatus;
         let adminUserPhotoPreview, adminUserPhotoImg, adminUserPhotoInitial, adminUserPhotoName;
         let adminShowInactiveToggle;
@@ -1577,6 +1591,8 @@
              adminScheduleDate = document.getElementById('adminScheduleDate');
              adminScheduleUsersList = document.getElementById('adminScheduleUsersList');
              adminCreateScheduleBtn = document.getElementById('adminCreateScheduleBtn');
+             adminRefreshSchedulesBtn = document.getElementById('adminRefreshSchedulesBtn');
+             adminScheduleStatusList = document.getElementById('adminScheduleStatusList');
             adminInstallBtn = document.getElementById('adminInstallBtn');
             adminInstallStatus = document.getElementById('adminInstallStatus');
 
@@ -1771,6 +1787,12 @@
             }
             if (adminCreateScheduleBtn) {
                 adminCreateScheduleBtn.addEventListener('click', adminCriarEscala);
+            }
+            if (adminRefreshSchedulesBtn) {
+                adminRefreshSchedulesBtn.addEventListener('click', async () => {
+                    await adminCarregarEscalasStatus();
+                    adminRenderEscalasStatus();
+                });
             }
         });
 
@@ -2856,7 +2878,150 @@
             }
             adminScheduleDate.value = '';
             adminRenderScheduleUsuarios();
+            await adminCarregarEscalasStatus();
+            adminRenderEscalasStatus();
             alert('Escala criada com convocações.');
+        }
+
+        async function adminCarregarEscalasStatus() {
+            const result = await apiJson('/api/schedules?days=180', { method: 'GET' });
+            if (!result.ok || !result.data || !result.data.ok) {
+                adminSchedules = [];
+                return false;
+            }
+            adminSchedules = Array.isArray(result.data.items) ? result.data.items : [];
+            return true;
+        }
+
+        function adminRenderEscalasStatus() {
+            if (!adminScheduleStatusList) return;
+            adminScheduleStatusList.innerHTML = '';
+            const items = Array.isArray(adminSchedules) ? adminSchedules : [];
+            if (items.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'admin-item';
+                empty.innerHTML = '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhuma escala criada.</div>';
+                adminScheduleStatusList.appendChild(empty);
+                return;
+            }
+
+            const formatDateBr = (dateStr) => {
+                const raw = String(dateStr || '').slice(0, 10);
+                const parts = raw.split('-');
+                if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                return raw;
+            };
+
+            const sorted = items.slice().sort((a, b) => String(a && a.date || '').localeCompare(String(b && b.date || '')));
+            sorted.forEach((s) => {
+                const scheduleId = Number(s && s.id);
+                const date = s && s.date ? String(s.date).slice(0, 10) : '';
+                const dateBr = formatDateBr(date);
+                const members = Array.isArray(s && s.members) ? s.members : [];
+                const accepted = members.filter((m) => String(m && m.status || 'pending') === 'accepted');
+                const declined = members.filter((m) => String(m && m.status || 'pending') === 'declined');
+                const pending = members.filter((m) => {
+                    const st = String(m && m.status || 'pending');
+                    return st !== 'accepted' && st !== 'declined';
+                });
+
+                const item = document.createElement('div');
+                item.className = 'admin-item';
+                item.style.flexDirection = 'column';
+                item.style.alignItems = 'stretch';
+                item.style.cursor = 'default';
+
+                const existingSet = new Set(members.map((m) => String(m && m.username || '').toLowerCase()).filter(Boolean));
+
+                const renderTags = (list, bg) => {
+                    if (!Array.isArray(list) || list.length === 0) return '<span style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhum</span>';
+                    return list
+                        .map((m) => String(m && m.username ? m.username : ''))
+                        .filter(Boolean)
+                        .slice(0, 60)
+                        .map((u) => `<span class="member-tag" style="background:${bg}; color: rgba(255,255,255,0.92);">${escapeHtml(u)}</span>`)
+                        .join(' ');
+                };
+
+                item.innerHTML = `
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                        <div style="min-width:0;">
+                            <div class="admin-item-title">Dia ${escapeHtml(dateBr)}</div>
+                            <div class="admin-item-sub">Aceitos: ${accepted.length} | Pendentes: ${pending.length} | Recusados: ${declined.length}</div>
+                        </div>
+                        <div style="display:flex; gap:12px; align-items:center;">
+                            <span class="admin-action" data-toggle-schedule-edit="${scheduleId}">Editar</span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 12px; color: rgba(255,255,255,0.75);">
+                        <div style="margin-top: 6px;"><span style="font-weight:800;">Aceitos:</span> ${renderTags(accepted, 'rgba(57,255,20,0.22)')}</div>
+                        <div style="margin-top: 6px;"><span style="font-weight:800;">Pendentes:</span> ${renderTags(pending, 'rgba(24,90,219,0.22)')}</div>
+                        <div style="margin-top: 6px;"><span style="font-weight:800;">Recusados:</span> ${renderTags(declined, 'rgba(236,54,54,0.22)')}</div>
+                    </div>
+                    <div data-schedule-edit="${scheduleId}" style="display:none; margin-top: 12px;">
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.65);">Marque quem deve ser convocado para este dia.</div>
+                        <div class="admin-list" style="margin-top: 10px; max-height: 260px; overflow-y:auto; padding-right: 6px;">
+                            ${(Array.isArray(adminUsers) ? adminUsers : []).map((u) => {
+                                const username = u && u.username ? String(u.username) : '';
+                                if (!username) return '';
+                                const low = username.toLowerCase();
+                                const inSchedule = existingSet.has(low);
+                                const found = members.find((m) => String(m && m.username || '').toLowerCase() === low);
+                                const st = found ? String(found.status || 'pending') : 'none';
+                                const label = st === 'accepted' ? 'Aceito' : (st === 'declined' ? 'Recusado' : (st === 'pending' ? 'Pendente' : 'Não convocado'));
+                                return `
+                                    <div class="admin-item">
+                                        <div style="min-width:0;">
+                                            <div class="admin-item-title">${escapeHtml(username)}</div>
+                                            <div class="admin-item-sub">${escapeHtml(label)}</div>
+                                        </div>
+                                        <label class="admin-toggle">
+                                            <input type="checkbox" data-schedule-id="${scheduleId}" data-username="${escapeHtml(username)}" ${inSchedule ? 'checked' : ''}>
+                                            Convocar
+                                        </label>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        <div style="display:flex; justify-content:flex-end; margin-top: 10px;">
+                            <button class="btn-send" type="button" style="padding: 10px; font-size: 14px; width:auto;" data-save-schedule="${scheduleId}">
+                                <span>Salvar Convocados</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                const toggleBtn = item.querySelector(`[data-toggle-schedule-edit="${scheduleId}"]`);
+                const editBox = item.querySelector(`[data-schedule-edit="${scheduleId}"]`);
+                if (toggleBtn && editBox) {
+                    toggleBtn.addEventListener('click', () => {
+                        const open = editBox.style.display !== 'none';
+                        editBox.style.display = open ? 'none' : 'block';
+                        toggleBtn.innerText = open ? 'Editar' : 'Fechar';
+                    });
+                }
+
+                const saveBtn = item.querySelector(`[data-save-schedule="${scheduleId}"]`);
+                if (saveBtn) {
+                    saveBtn.addEventListener('click', async () => {
+                        const nextSet = new Set();
+                        item.querySelectorAll(`input[type="checkbox"][data-schedule-id="${scheduleId}"][data-username]`).forEach((el) => {
+                            if (el.checked) nextSet.add(String(el.getAttribute('data-username') || '').toLowerCase());
+                        });
+                        const addMembers = Array.from(nextSet).filter((u) => !existingSet.has(u));
+                        const removeMembers = Array.from(existingSet).filter((u) => !nextSet.has(u));
+                        const result = await apiJson('/api/schedules', { method: 'PUT', body: JSON.stringify({ scheduleId, addMembers, removeMembers }) });
+                        if (!result.ok || !result.data || !result.data.ok) {
+                            alert('Erro ao atualizar convocados.');
+                            return;
+                        }
+                        await adminCarregarEscalasStatus();
+                        adminRenderEscalasStatus();
+                    });
+                }
+
+                adminScheduleStatusList.appendChild(item);
+            });
         }
         function adminRenderChatGrupoUsuarios() {
             if (!adminChatGroupUsersList) return;
@@ -3381,6 +3546,8 @@
                 adminRenderChatGrupoUsuarios();
                 adminRenderChatGrupos();
                 adminRenderScheduleUsuarios();
+                await adminCarregarEscalasStatus();
+                adminRenderEscalasStatus();
             } else if (viewName === 'profile') {
                 if (profileView) profileView.classList.add('active');
                 if (navProfile) navProfile.classList.add('active');
