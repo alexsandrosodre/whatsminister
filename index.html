@@ -1130,19 +1130,22 @@
                     <button id="chatBackBtn" class="nav-btn" type="button">Voltar</button>
                     <div id="chatTopTitle" class="chat-topbar-title">Chat</div>
                 </div>
-                <label>Chat</label>
-                <div style="margin-top: 10px; display:flex; gap:10px;">
-                    <button id="chatTabContacts" class="nav-btn active" type="button">Contatos</button>
-                    <button id="chatTabGroups" class="nav-btn" type="button">Grupos</button>
+                <div id="chatPicker" style="margin-top: 10px;">
+                    <div style="display:flex; gap:10px;">
+                        <button id="chatTabContacts" class="nav-btn active" type="button">Contatos</button>
+                        <button id="chatTabGroups" class="nav-btn" type="button">Grupos</button>
+                    </div>
+                    <div id="chatThreadsList" style="margin-top: 10px; height: calc(100vh - 220px); overflow-y: auto; display:flex; flex-direction:column; gap:10px; padding-right: 6px;"></div>
                 </div>
-                <div id="chatThreadsList" style="margin-top: 10px; max-height: 22vh; overflow-y: auto; display:flex; flex-direction:column; gap:10px; padding-right: 6px;"></div>
-                <div id="chatSelectedTitle" style="margin-top: 10px; font-weight: 900; display:none;"></div>
-                <div id="chatList" style="margin-top: 10px; height: 38vh; overflow-y: auto; display:flex; flex-direction:column; gap:10px; padding-right: 6px;"></div>
-                <div class="chat-composer">
-                    <textarea id="chatInput" class="text-input" placeholder="Digite uma mensagem..."></textarea>
-                    <button id="chatSendBtn" class="btn-send chat-send-btn">
-                        <span>Enviar</span>
-                    </button>
+                <div id="chatConversation" style="margin-top: 10px; display:none; flex:1; min-height:0; flex-direction:column;">
+                    <div id="chatSelectedTitle" style="margin-top: 0; font-weight: 900; display:none;"></div>
+                    <div id="chatList" style="margin-top: 10px; flex:1; min-height:0; overflow-y: auto; display:flex; flex-direction:column; gap:10px; padding-right: 6px;"></div>
+                    <div class="chat-composer">
+                        <textarea id="chatInput" class="text-input" placeholder="Digite uma mensagem..."></textarea>
+                        <button id="chatSendBtn" class="btn-send chat-send-btn">
+                            <span>Enviar</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1301,7 +1304,7 @@
         let passwordOverlay, closePasswordOverlay, passwordHint, passwordError, currentPasswordInput, newPasswordInput, newPassword2Input;
         let mainNav, homeView, scheduleView, repertoireView, chatView, profileView, adminView, navHome, navSchedule, navRepertoire, navChat, navChatBadge, navProfile, navAdmin;
         let repertoireName, repertoireLink, repertoireLyrics, repertoireSearch, addRepertoireBtn, repertoireList;
-        let chatList, chatInput, chatSendBtn, chatTabContacts, chatTabGroups, chatThreadsList, chatSelectedTitle, chatBackBtn, chatTopTitle;
+        let chatList, chatInput, chatSendBtn, chatTabContacts, chatTabGroups, chatThreadsList, chatSelectedTitle, chatBackBtn, chatTopTitle, chatPicker, chatConversation;
         let profilePhotoInput, profilePhotoPreview, profilePhotoPlaceholder, profileSavePhotoBtn, profileRemovePhotoBtn, profilePhotoMsg, profileUsername;
         let profilePhotoDraft = '';
         let lyricsModal, lyricsModalTitle, lyricsModalBody;
@@ -1451,6 +1454,8 @@
              chatSelectedTitle = document.getElementById('chatSelectedTitle');
              chatBackBtn = document.getElementById('chatBackBtn');
              chatTopTitle = document.getElementById('chatTopTitle');
+             chatPicker = document.getElementById('chatPicker');
+             chatConversation = document.getElementById('chatConversation');
              profilePhotoInput = document.getElementById('profilePhotoInput');
              profilePhotoPreview = document.getElementById('profilePhotoPreview');
              profilePhotoPlaceholder = document.getElementById('profilePhotoPlaceholder');
@@ -1636,7 +1641,21 @@
                 chatTabGroups.addEventListener('click', () => setChatTab('groups'));
             }
             if (chatBackBtn) {
-                chatBackBtn.addEventListener('click', () => switchView(lastNonChatView || 'home'));
+                chatBackBtn.addEventListener('click', async () => {
+                    if (chatActiveThreadId) {
+                        chatActiveThreadId = 0;
+                        chatActiveThreadLabel = '';
+                        chatParticipants = [];
+                        chatMessages = [];
+                        chatLastId = 0;
+                        renderChat();
+                        updateChatMode();
+                        await carregarChatThreads();
+                        renderChatThreadsList();
+                        return;
+                    }
+                    switchView(lastNonChatView || 'home');
+                });
             }
 
             if (adminCreateUserBtn) {
@@ -2015,6 +2034,15 @@
             if (chatSendBtn) chatSendBtn.disabled = !enabled;
         }
 
+        function updateChatMode() {
+            const inConversation = Boolean(chatActiveThreadId);
+            if (chatPicker) chatPicker.style.display = inConversation ? 'none' : 'block';
+            if (chatConversation) chatConversation.style.display = inConversation ? 'flex' : 'none';
+            if (chatSelectedTitle) chatSelectedTitle.style.display = inConversation ? 'none' : 'none';
+            if (chatTopTitle) chatTopTitle.innerText = inConversation ? (chatActiveThreadLabel || 'Chat') : 'Chat';
+            updateChatComposerState();
+        }
+
         async function carregarChatContatos() {
             const result = await apiJson('/api/contacts', { method: 'GET' });
             if (!result.ok || !result.data || !result.data.ok) {
@@ -2311,12 +2339,11 @@
             if (chatSelectedTitle) chatSelectedTitle.style.display = 'none';
             chatActiveThreadId = 0;
             chatActiveThreadLabel = '';
-            if (chatTopTitle) chatTopTitle.innerText = 'Chat';
             chatParticipants = [];
             chatMessages = [];
             chatLastId = 0;
             renderChat();
-            updateChatComposerState();
+            updateChatMode();
             await carregarChatContatos();
             await carregarChatThreads();
             setChatTab(chatActiveTab);
@@ -2328,7 +2355,6 @@
             if (!Number.isFinite(id) || id <= 0) return;
             chatActiveThreadId = id;
             chatActiveThreadLabel = String(label || '');
-            if (chatTopTitle) chatTopTitle.innerText = chatActiveThreadLabel || 'Chat';
             chatParticipants = [];
             chatMessages = [];
             chatLastId = 0;
@@ -2336,7 +2362,7 @@
                 chatSelectedTitle.style.display = 'block';
                 chatSelectedTitle.innerText = chatActiveThreadLabel || 'Chat';
             }
-            updateChatComposerState();
+            updateChatMode();
             await carregarChat({ initial: true });
             scrollChatToBottom();
             await marcarChatLido();
