@@ -757,6 +757,10 @@
         <p style="margin: 5px 0 0 0; font-size: 12px; opacity: 0.8;">Juntos até a Eternidade</p>
         
         <div id="userBadge" class="user-badge" style="display: none;">
+            <div style="width:26px; height:26px; border-radius:50%; overflow:hidden; background: rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center;">
+                <img id="headerProfilePhoto" alt="Foto" style="width:100%; height:100%; object-fit:cover; display:none;">
+                <span id="headerProfileInitial" style="font-size: 12px; font-weight: 900; color: rgba(255,255,255,0.7);">?</span>
+            </div>
             <span id="userNameText">Logado</span>
             <span class="logout-btn" onclick="fazerLogout()">Sair</span>
         </div>
@@ -1230,15 +1234,31 @@
         function renderProfilePhoto(photo) {
             if (!profilePhotoPreview || !profilePhotoPlaceholder) return;
             const value = String(photo || '');
+            const headerPhoto = document.getElementById('headerProfilePhoto');
+            const headerInitial = document.getElementById('headerProfileInitial');
             if (value) {
                 profilePhotoPreview.src = value;
                 profilePhotoPreview.style.display = 'block';
                 profilePhotoPlaceholder.style.display = 'none';
+                if (headerPhoto) {
+                    headerPhoto.src = value;
+                    headerPhoto.style.display = 'block';
+                }
+                if (headerInitial) headerInitial.style.display = 'none';
             } else {
                 profilePhotoPreview.removeAttribute('src');
                 profilePhotoPreview.style.display = 'none';
                 profilePhotoPlaceholder.style.display = 'block';
-                profilePhotoPlaceholder.innerText = currentUser && currentUser.username ? String(currentUser.username).slice(0, 1).toUpperCase() : '?';
+                const initial = currentUser && currentUser.username ? String(currentUser.username).slice(0, 1).toUpperCase() : '?';
+                profilePhotoPlaceholder.innerText = initial;
+                if (headerPhoto) {
+                    headerPhoto.removeAttribute('src');
+                    headerPhoto.style.display = 'none';
+                }
+                if (headerInitial) {
+                    headerInitial.style.display = 'inline';
+                    headerInitial.innerText = initial;
+                }
             }
         }
 
