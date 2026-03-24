@@ -1912,40 +1912,62 @@
                 dutyList.appendChild(empty);
                 return;
             }
+            const formatDateBr = (dateStr) => {
+                const raw = String(dateStr || '').slice(0, 10);
+                const parts = raw.split('-');
+                if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                return raw;
+            };
             items.forEach((s) => {
                 const date = s && s.date ? String(s.date).slice(0, 10) : '';
+                const dateBr = formatDateBr(date);
                 const members = Array.isArray(s && s.members) ? s.members : [];
                 const mine = currentUser && currentUser.username ? String(currentUser.username) : '';
                 const my = members.find((m) => String(m && m.username).toLowerCase() === mine.toLowerCase());
                 const status = my ? String(my.status || 'pending') : 'pending';
+                const statusLabel = status === 'accepted' ? 'aceito' : (status === 'declined' ? 'recusado' : 'pendente');
                 const item = document.createElement('div');
                 item.className = 'admin-item';
                 item.innerHTML = `
                     <div style="min-width:0;">
-                        <div class="admin-item-title">Dia ${escapeHtml(date)}</div>
-                        <div class="admin-item-sub">Seu status: ${escapeHtml(status)}</div>
+                        <div class="admin-item-title">Dia ${escapeHtml(dateBr)}</div>
+                        <div class="admin-item-sub">Graça e paz de Cristo, você foi escalado para o dia ${escapeHtml(dateBr)}.</div>
+                        <div class="admin-item-sub">Resposta: ${escapeHtml(statusLabel)} (se não responder, entra na escala).</div>
                     </div>
                     <div style="display:flex; gap:12px; align-items:center;">
-                        <span class="admin-action" data-accept="${Number(s.id)}">Aceitar</span>
-                        <span class="admin-action" data-decline="${Number(s.id)}">Recusar</span>
+                        <span class="admin-action" role="button" tabindex="0" data-action="accept" data-id="${Number(s.id)}">Aceitar</span>
+                        <span class="admin-action" role="button" tabindex="0" data-action="decline" data-id="${Number(s.id)}">Recusar</span>
                     </div>
                 `;
-                item.querySelectorAll('.admin-action[data-accept]').forEach((el) => {
-                    el.addEventListener('click', async () => {
-                        await apiJson('/api/schedule-response', { method: 'POST', body: JSON.stringify({ scheduleId: Number(s.id), action: 'accept' }) });
+
+                const bindAction = (el) => {
+                    const act = String(el.getAttribute('data-action') || '').trim();
+                    const sid = Number(el.getAttribute('data-id'));
+                    const run = async () => {
+                        if (!Number.isFinite(sid) || (act !== 'accept' && act !== 'decline')) return;
+                        const result = await apiJson('/api/schedule-response', { method: 'POST', body: JSON.stringify({ scheduleId: sid, action: act }) });
+                        if (!result.ok || !result.data || !result.data.ok) {
+                            alert('Erro ao registrar sua resposta.');
+                            return;
+                        }
                         await carregarConvocacoes();
                         renderConvocacoes();
                         await atualizarDestaqueSemana();
+                    };
+                    el.addEventListener('click', (ev) => {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        run();
                     });
-                });
-                item.querySelectorAll('.admin-action[data-decline]').forEach((el) => {
-                    el.addEventListener('click', async () => {
-                        await apiJson('/api/schedule-response', { method: 'POST', body: JSON.stringify({ scheduleId: Number(s.id), action: 'decline' }) });
-                        await carregarConvocacoes();
-                        renderConvocacoes();
-                        await atualizarDestaqueSemana();
+                    el.addEventListener('keydown', (ev) => {
+                        if (ev.key === 'Enter' || ev.key === ' ') {
+                            ev.preventDefault();
+                            run();
+                        }
                     });
-                });
+                };
+
+                item.querySelectorAll('.admin-action[data-action][data-id]').forEach(bindAction);
                 dutyList.appendChild(item);
             });
         }
