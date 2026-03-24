@@ -1,5 +1,5 @@
-const CACHE_NAME = 'whatsminister-v1';
-const PRECACHE_URLS = ['/', '/index.html', '/manifest.webmanifest', '/mins/minislogo.png'];
+const CACHE_NAME = 'whatsminister-v2';
+const PRECACHE_URLS = ['/', '/index.html', '/manifest.webmanifest', '/mins/minislogo.png', '/mins/minislogoheader.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -17,6 +17,11 @@ self.addEventListener('activate', (event) => {
       self.clients.claim()
     ])
   );
+});
+
+self.addEventListener('message', (event) => {
+  const msg = event && event.data ? event.data : null;
+  if (msg && msg.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('fetch', (event) => {

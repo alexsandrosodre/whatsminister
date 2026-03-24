@@ -989,11 +989,7 @@
         <div class="login-card" style="max-width: 520px; width: calc(100% - 40px);">
             <span id="chatOverlayClose" class="close-login">&times;</span>
             <div id="chatOverlayTitle" class="logo-text" style="font-size: 18px; margin-bottom: 5px;">Contatos</div>
-            <input id="chatOverlayName" type="text" class="login-input" placeholder="Nome do grupo" style="display:none;">
             <div id="chatOverlayList" style="margin-top: 10px; max-height: 50vh; overflow-y: auto;"></div>
-            <button id="chatOverlaySave" class="btn-send" style="padding: 12px; margin-top: 12px;">
-                <span>Abrir</span>
-            </button>
         </div>
     </div>
 
@@ -1117,9 +1113,6 @@
                     <button id="chatNewDmBtn" class="btn-send chat-send-btn" style="padding: 10px 12px;">
                         <span>Contatos</span>
                     </button>
-                    <button id="chatNewGroupBtn" class="btn-send chat-send-btn" style="padding: 10px 12px; display:none;">
-                        <span>Grupo</span>
-                    </button>
                 </div>
                 <div id="chatList" style="margin-top: 10px; height: 55vh; overflow-y: auto; display:flex; flex-direction:column; gap:10px; padding-right: 6px;"></div>
                 <div class="chat-composer">
@@ -1219,6 +1212,21 @@
                 </div>
 
                 <div class="panel-card">
+                    <label>Grupos (Chat)</label>
+                    <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 8px;">
+                        Grupos criados aqui aparecem na aba Mensagem para os usuários incluídos.
+                    </div>
+                    <div style="margin-top: 12px;">
+                        <input id="adminChatGroupName" class="text-input" type="text" placeholder="Nome do grupo">
+                        <div id="adminChatGroupUsersList" class="admin-list" style="margin-top: 10px;"></div>
+                        <button id="adminChatCreateGroupBtn" class="btn-send" style="padding: 10px; font-size: 14px; margin-top: 10px;">
+                            <span>Criar Grupo</span>
+                        </button>
+                    </div>
+                    <div id="adminChatGroupsList" class="admin-list" style="margin-top: 12px;"></div>
+                </div>
+
+                <div class="panel-card">
                     <label>App (Instalar)</label>
                     <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 8px;">
                         Android: o Chrome libera um botão de instalar quando o app é PWA.
@@ -1270,8 +1278,8 @@
         let passwordOverlay, closePasswordOverlay, passwordHint, passwordError, currentPasswordInput, newPasswordInput, newPassword2Input;
         let mainNav, homeView, scheduleView, repertoireView, chatView, profileView, adminView, navHome, navSchedule, navRepertoire, navChat, navChatBadge, navProfile, navAdmin;
         let repertoireName, repertoireLink, repertoireLyrics, repertoireSearch, addRepertoireBtn, repertoireList;
-        let chatList, chatInput, chatSendBtn, chatThreadSelect, chatNewDmBtn, chatNewGroupBtn;
-        let chatOverlay, chatOverlayTitle, chatOverlayClose, chatOverlayName, chatOverlayList, chatOverlaySave;
+        let chatList, chatInput, chatSendBtn, chatThreadSelect, chatNewDmBtn;
+        let chatOverlay, chatOverlayTitle, chatOverlayClose, chatOverlayList;
         let profilePhotoInput, profilePhotoPreview, profilePhotoPlaceholder, profileSavePhotoBtn, profileRemovePhotoBtn, profilePhotoMsg, profileUsername;
         let profilePhotoDraft = '';
         let lyricsModal, lyricsModalTitle, lyricsModalBody;
@@ -1291,10 +1299,13 @@
         let pwaInstalled = false;
         let adminUsers = [];
         let adminMembers = [];
+        let adminChatGroups = [];
+        let adminChatGroupSelectedUsers = new Set();
         let adminMemberEditingId = null;
         let adminShowInactiveMembers = false;
         let adminNewUsername, adminNewIsAdmin, adminCreateUserBtn, adminUsersList;
         let adminMemberName, adminCreateMemberBtn, adminMembersList;
+        let adminChatGroupName, adminChatCreateGroupBtn, adminChatGroupUsersList, adminChatGroupsList;
         let adminInstallBtn, adminInstallStatus;
         let adminUserPhotoPreview, adminUserPhotoImg, adminUserPhotoInitial, adminUserPhotoName;
         let adminShowInactiveToggle;
@@ -1408,13 +1419,10 @@
              chatSendBtn = document.getElementById('chatSendBtn');
              chatThreadSelect = document.getElementById('chatThreadSelect');
              chatNewDmBtn = document.getElementById('chatNewDmBtn');
-             chatNewGroupBtn = document.getElementById('chatNewGroupBtn');
              chatOverlay = document.getElementById('chatOverlay');
              chatOverlayTitle = document.getElementById('chatOverlayTitle');
              chatOverlayClose = document.getElementById('chatOverlayClose');
-             chatOverlayName = document.getElementById('chatOverlayName');
              chatOverlayList = document.getElementById('chatOverlayList');
-             chatOverlaySave = document.getElementById('chatOverlaySave');
              profilePhotoInput = document.getElementById('profilePhotoInput');
              profilePhotoPreview = document.getElementById('profilePhotoPreview');
              profilePhotoPlaceholder = document.getElementById('profilePhotoPlaceholder');
@@ -1435,6 +1443,10 @@
              adminCreateMemberBtn = document.getElementById('adminCreateMemberBtn');
              adminMembersList = document.getElementById('adminMembersList');
              adminShowInactiveToggle = document.getElementById('adminShowInactiveToggle');
+             adminChatGroupName = document.getElementById('adminChatGroupName');
+             adminChatCreateGroupBtn = document.getElementById('adminChatCreateGroupBtn');
+             adminChatGroupUsersList = document.getElementById('adminChatGroupUsersList');
+             adminChatGroupsList = document.getElementById('adminChatGroupsList');
             adminInstallBtn = document.getElementById('adminInstallBtn');
             adminInstallStatus = document.getElementById('adminInstallStatus');
 
@@ -1522,7 +1534,34 @@
             });
 
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js').catch(() => {});
+                navigator.serviceWorker.register('/sw.js').then((reg) => {
+                    try {
+                        reg.update();
+                    } catch {}
+
+                    function maybeActivate(worker) {
+                        if (!worker) return;
+                        try {
+                            worker.postMessage({ type: 'SKIP_WAITING' });
+                        } catch {}
+                    }
+
+                    if (reg.waiting) maybeActivate(reg.waiting);
+
+                    reg.addEventListener('updatefound', () => {
+                        const worker = reg.installing;
+                        if (!worker) return;
+                        worker.addEventListener('statechange', () => {
+                            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                                maybeActivate(worker);
+                            }
+                        });
+                    });
+                }).catch(() => {});
+
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    window.location.reload();
+                });
             }
 
             window.addEventListener('beforeinstallprompt', (e) => {
@@ -1597,9 +1636,6 @@
             if (chatNewDmBtn) {
                 chatNewDmBtn.addEventListener('click', abrirOverlayContatos);
             }
-            if (chatNewGroupBtn) {
-                chatNewGroupBtn.addEventListener('click', abrirOverlayGrupo);
-            }
             if (chatOverlayClose) {
                 chatOverlayClose.addEventListener('click', () => toggleChatOverlay(false));
             }
@@ -1615,6 +1651,9 @@
 
             if (adminCreateMemberBtn) {
                 adminCreateMemberBtn.addEventListener('click', adminCriarMembro);
+            }
+            if (adminChatCreateGroupBtn) {
+                adminChatCreateGroupBtn.addEventListener('click', adminCriarChatGrupo);
             }
         });
 
@@ -2230,30 +2269,9 @@
             await selecionarThread(result.data.threadId);
         }
 
-        async function criarGrupo(name, members) {
-            const groupName = String(name || '').trim();
-            if (!groupName) {
-                alert('Informe o nome do grupo.');
-                return;
-            }
-            const list = Array.isArray(members) ? members : [];
-            const result = await apiJson('/api/chat-threads', { method: 'POST', body: JSON.stringify({ type: 'group', name: groupName, members: list }) });
-            if (!result.ok || !result.data || !result.data.ok) {
-                const err = result && result.data && result.data.error ? String(result.data.error) : '';
-                if (err === 'not_enough_members') alert('Selecione pelo menos 1 usuário além de você.');
-                else alert('Erro ao criar grupo.');
-                return;
-            }
-            toggleChatOverlay(false);
-            await carregarChatThreads({ keepSelection: false });
-            await selecionarThread(result.data.threadId);
-        }
-
         async function abrirOverlayContatos() {
-            if (!chatOverlayTitle || !chatOverlayList || !chatOverlaySave || !chatOverlayName) return;
+            if (!chatOverlayTitle || !chatOverlayList) return;
             chatOverlayTitle.innerText = 'Contatos';
-            chatOverlayName.style.display = 'none';
-            chatOverlaySave.style.display = 'none';
             chatOverlayList.innerHTML = '';
             toggleChatOverlay(true);
 
@@ -2303,71 +2321,6 @@
                 item.addEventListener('click', () => abrirContato(username));
                 chatOverlayList.appendChild(item);
             });
-        }
-
-        async function abrirOverlayGrupo() {
-            if (!chatOverlayTitle || !chatOverlayList || !chatOverlaySave || !chatOverlayName) return;
-            chatOverlayTitle.innerText = 'Novo grupo';
-            chatOverlayName.style.display = 'block';
-            chatOverlayName.value = '';
-            chatOverlaySave.style.display = 'flex';
-            const label = chatOverlaySave.querySelector('span');
-            if (label) label.innerText = 'Criar grupo';
-            chatOverlayList.innerHTML = '';
-            toggleChatOverlay(true);
-
-            const result = await apiJson('/api/contacts', { method: 'GET' });
-            const contacts = result.ok && result.data && result.data.ok && Array.isArray(result.data.contacts) ? result.data.contacts : [];
-            const selected = new Set();
-
-            contacts.forEach((c) => {
-                const username = c && c.username ? String(c.username) : '';
-                const photo = c && c.photo ? String(c.photo) : '';
-                const item = document.createElement('div');
-                item.className = 'admin-item';
-                item.innerHTML = `
-                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-                        <div style="display:flex; gap:12px; align-items:center; min-width:0;">
-                            <div class="chat-avatar">
-                                <img alt="Foto">
-                                <span>?</span>
-                            </div>
-                            <div style="min-width:0;">
-                                <div class="admin-item-title">${escapeHtml(username)}</div>
-                                <div class="admin-item-sub">Selecionar</div>
-                            </div>
-                        </div>
-                        <label class="admin-toggle">
-                            <input type="checkbox" data-username="${escapeHtml(username)}">
-                            Incluir
-                        </label>
-                    </div>
-                `;
-                const img = item.querySelector('img');
-                const span = item.querySelector('span');
-                if (img && span) {
-                    if (photo) {
-                        img.src = photo;
-                        img.style.display = 'block';
-                        span.style.display = 'none';
-                    } else {
-                        img.removeAttribute('src');
-                        img.style.display = 'none';
-                        span.style.display = 'inline';
-                        span.innerText = username ? username.slice(0, 1).toUpperCase() : '?';
-                    }
-                }
-                const checkbox = item.querySelector('input[type="checkbox"][data-username]');
-                if (checkbox) {
-                    checkbox.addEventListener('change', () => {
-                        if (checkbox.checked) selected.add(username);
-                        else selected.delete(username);
-                    });
-                }
-                chatOverlayList.appendChild(item);
-            });
-
-            chatOverlaySave.onclick = () => criarGrupo(chatOverlayName.value, Array.from(selected));
         }
 
         async function carregarRepertorio() {
@@ -2535,6 +2488,111 @@
                 return;
             }
             adminMembers = Array.isArray(result.data.members) ? result.data.members : [];
+        }
+
+        async function adminCarregarChatGrupos() {
+            const result = await apiJson('/api/chat-groups', { method: 'GET' });
+            if (!result.ok || !result.data || !result.data.ok) {
+                adminChatGroups = [];
+                return;
+            }
+            adminChatGroups = Array.isArray(result.data.groups) ? result.data.groups : [];
+        }
+
+        function adminRenderChatGrupoUsuarios() {
+            if (!adminChatGroupUsersList) return;
+            adminChatGroupUsersList.innerHTML = '';
+            adminChatGroupSelectedUsers = new Set();
+
+            if (!Array.isArray(adminUsers) || adminUsers.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'admin-item';
+                empty.innerHTML = '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Carregue os usuários para selecionar.</div>';
+                adminChatGroupUsersList.appendChild(empty);
+                return;
+            }
+
+            adminUsers.forEach((u) => {
+                const username = u && u.username ? String(u.username) : '';
+                if (!username) return;
+                const item = document.createElement('div');
+                item.className = 'admin-item';
+                item.innerHTML = `
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                        <div style="min-width:0;">
+                            <div class="admin-item-title">${escapeHtml(username)}</div>
+                            <div class="admin-item-sub">Incluir no grupo</div>
+                        </div>
+                        <label class="admin-toggle">
+                            <input type="checkbox" data-username="${escapeHtml(username)}">
+                            Incluir
+                        </label>
+                    </div>
+                `;
+                const checkbox = item.querySelector('input[type="checkbox"][data-username]');
+                if (checkbox) {
+                    checkbox.addEventListener('change', () => {
+                        if (checkbox.checked) adminChatGroupSelectedUsers.add(username);
+                        else adminChatGroupSelectedUsers.delete(username);
+                    });
+                }
+                adminChatGroupUsersList.appendChild(item);
+            });
+        }
+
+        function adminRenderChatGrupos() {
+            if (!adminChatGroupsList) return;
+            adminChatGroupsList.innerHTML = '';
+
+            if (!Array.isArray(adminChatGroups) || adminChatGroups.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'admin-item';
+                empty.innerHTML = '<div style="font-size: 12px; color: rgba(255,255,255,0.6);">Nenhum grupo criado.</div>';
+                adminChatGroupsList.appendChild(empty);
+                return;
+            }
+
+            adminChatGroups.forEach((g) => {
+                const name = g && g.name ? String(g.name) : '';
+                const members = Array.isArray(g && g.members) ? g.members : [];
+                const count = members.length;
+                const item = document.createElement('div');
+                item.className = 'admin-item';
+                item.innerHTML = `
+                    <div style="min-width:0;">
+                        <div class="admin-item-title">${escapeHtml(name)}</div>
+                        <div class="admin-item-sub">${count} membro(s)</div>
+                        <div style="margin-top: 8px; display:flex; flex-wrap: wrap; gap:6px;">
+                            ${members
+                                .slice(0, 14)
+                                .map((m) => `<span class="member-tag">${escapeHtml(m && m.username ? String(m.username) : '')}</span>`)
+                                .join('')}
+                        </div>
+                    </div>
+                `;
+                adminChatGroupsList.appendChild(item);
+            });
+        }
+
+        async function adminCriarChatGrupo() {
+            if (!adminChatGroupName) return;
+            const name = adminChatGroupName.value.trim();
+            if (!name) {
+                alert('Informe o nome do grupo.');
+                return;
+            }
+            const members = Array.from(adminChatGroupSelectedUsers);
+            const result = await apiJson('/api/chat-groups', { method: 'POST', body: JSON.stringify({ name, members }) });
+            if (!result.ok || !result.data || !result.data.ok) {
+                const err = result && result.data && result.data.error ? String(result.data.error) : '';
+                if (err === 'not_enough_members') alert('Selecione pelo menos 1 usuário além de você.');
+                else alert('Erro ao criar grupo.');
+                return;
+            }
+            adminChatGroupName.value = '';
+            await adminCarregarChatGrupos();
+            adminRenderChatGrupos();
+            await carregarChatThreads({ keepSelection: false });
         }
 
         function adminRenderUsuarios() {
@@ -2799,14 +2857,16 @@
                 await carregarRepertorio();
                 renderizarRepertorio();
                 if (navChat) navChat.style.display = 'inline-block';
-                if (chatNewGroupBtn) chatNewGroupBtn.style.display = currentUser && currentUser.isAdmin ? 'inline-flex' : 'none';
                 if (navProfile) navProfile.style.display = 'inline-block';
                 if (navAdmin) navAdmin.style.display = currentUser && currentUser.isAdmin ? 'inline-block' : 'none';
                 if (currentUser && currentUser.isAdmin) {
                     await adminCarregarUsuarios();
                     await adminCarregarMembros();
+                    await adminCarregarChatGrupos();
                     adminRenderUsuarios();
                     adminRenderMembros();
+                    adminRenderChatGrupoUsuarios();
+                    adminRenderChatGrupos();
                 }
                 await carregarPerfil();
                 await carregarChatThreads({ keepSelection: false });
@@ -2823,7 +2883,6 @@
                 if (mainNav) mainNav.style.display = 'none';
                 if (sendSmartBtn) sendSmartBtn.style.display = 'none';
                 if (navChat) navChat.style.display = 'none';
-                if (chatNewGroupBtn) chatNewGroupBtn.style.display = 'none';
                 if (navProfile) navProfile.style.display = 'none';
                 if (navAdmin) navAdmin.style.display = 'none';
                 stopChatPolling();
@@ -2864,6 +2923,8 @@
                 if (navAdmin) navAdmin.classList.add('active');
                 adminRenderUsuarios();
                 adminRenderMembros();
+                adminRenderChatGrupoUsuarios();
+                adminRenderChatGrupos();
             } else if (viewName === 'profile') {
                 if (profileView) profileView.classList.add('active');
                 if (navProfile) navProfile.classList.add('active');

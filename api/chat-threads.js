@@ -125,6 +125,7 @@ module.exports = async (req, res) => {
     const type = String(body.type || '').trim();
 
     if (type === 'group') {
+      if (!user.isAdmin) return sendJson(res, 403, { ok: false, error: 'forbidden' });
       const name = String(body.name || '').trim();
       if (!name) return sendJson(res, 400, { ok: false, error: 'missing_name' });
       const members = normalizeList(body.members);
