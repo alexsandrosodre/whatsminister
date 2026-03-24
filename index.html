@@ -678,6 +678,64 @@
             margin-bottom: 6px;
         }
 
+        .chat-avatar {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: rgba(255,255,255,0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+        }
+
+        .chat-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        .chat-avatar span {
+            font-size: 12px;
+            font-weight: 900;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .chat-row.theirs .chat-avatar {
+            margin-right: 8px;
+        }
+
+        .chat-row.mine .chat-avatar {
+            margin-left: 8px;
+        }
+
+        .chat-composer {
+            margin-top: 12px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .chat-composer textarea {
+            flex: 1 1 auto;
+            min-width: 0;
+            height: 44px;
+            min-height: 44px;
+            padding: 10px 12px;
+            font-size: 14px;
+            line-height: 18px;
+        }
+
+        .chat-send-btn {
+            width: auto;
+            flex: 0 0 auto;
+            padding: 10px 14px;
+            font-size: 14px;
+            border-radius: 12px;
+        }
+
         .chat-ticks {
             font-weight: 900;
             letter-spacing: -1px;
@@ -1022,9 +1080,9 @@
             <div class="panel-card" style="padding: 12px;">
                 <label>Mensagem</label>
                 <div id="chatList" style="margin-top: 10px; height: 55vh; overflow-y: auto; display:flex; flex-direction:column; gap:10px; padding-right: 6px;"></div>
-                <div style="margin-top: 12px; display:flex; gap:10px; align-items:flex-end;">
-                    <textarea id="chatInput" class="text-input" placeholder="Digite uma mensagem..." style="min-height: 42px; height: 42px; resize: none; flex:1;"></textarea>
-                    <button id="chatSendBtn" class="btn-send" style="padding: 10px 14px; font-size: 14px;">
+                <div class="chat-composer">
+                    <textarea id="chatInput" class="text-input" placeholder="Digite uma mensagem..."></textarea>
+                    <button id="chatSendBtn" class="btn-send chat-send-btn">
                         <span>Enviar</span>
                     </button>
                 </div>
@@ -1839,8 +1897,21 @@
             if (!chatList) return;
             chatList.innerHTML = '';
 
-            const total = Array.isArray(chatParticipants) ? chatParticipants.length : 0;
+            const participants = Array.isArray(chatParticipants) ? chatParticipants : [];
+            const total = participants.length;
             const mine = currentUser && currentUser.username ? String(currentUser.username) : '';
+
+            const photoByUser = new Map();
+            participants.forEach((p) => {
+                if (p && typeof p === 'object') {
+                    const u = p.username ? String(p.username) : '';
+                    const ph = p.photo ? String(p.photo) : '';
+                    if (u) photoByUser.set(u, ph);
+                } else if (p) {
+                    const u = String(p);
+                    photoByUser.set(u, '');
+                }
+            });
 
             chatMessages.forEach((m) => {
                 const sender = m && m.sender ? String(m.sender) : '';
@@ -1848,15 +1919,36 @@
                 const row = document.createElement('div');
                 row.className = `chat-row ${isMine ? 'mine' : 'theirs'}`;
 
+                const avatar = document.createElement('div');
+                avatar.className = 'chat-avatar';
+                const avatarImg = document.createElement('img');
+                const avatarInitial = document.createElement('span');
+                const senderPhoto = m && m.senderPhoto ? String(m.senderPhoto) : (photoByUser.get(sender) || '');
+                const minePhoto = profilePhotoDraft ? String(profilePhotoDraft) : (photoByUser.get(mine) || '');
+                const photo = isMine ? minePhoto : senderPhoto;
+                const initial = sender ? sender.slice(0, 1).toUpperCase() : '?';
+                if (photo) {
+                    avatarImg.src = photo;
+                    avatarImg.style.display = 'block';
+                    avatarInitial.style.display = 'none';
+                    avatar.appendChild(avatarImg);
+                    avatar.appendChild(avatarInitial);
+                } else {
+                    avatarImg.removeAttribute('src');
+                    avatarImg.style.display = 'none';
+                    avatarInitial.style.display = 'inline';
+                    avatarInitial.innerText = initial;
+                    avatar.appendChild(avatarImg);
+                    avatar.appendChild(avatarInitial);
+                }
+
                 const bubble = document.createElement('div');
                 bubble.className = `chat-bubble ${isMine ? 'mine' : 'theirs'}`;
 
-                if (!isMine) {
-                    const senderEl = document.createElement('div');
-                    senderEl.className = 'chat-sender';
-                    senderEl.innerText = sender;
-                    bubble.appendChild(senderEl);
-                }
+                const senderEl = document.createElement('div');
+                senderEl.className = 'chat-sender';
+                senderEl.innerText = isMine ? 'Você' : sender;
+                bubble.appendChild(senderEl);
 
                 const textEl = document.createElement('div');
                 textEl.innerText = m && m.text ? String(m.text) : '';
@@ -1888,7 +1980,13 @@
                 }
 
                 bubble.appendChild(meta);
-                row.appendChild(bubble);
+                if (isMine) {
+                    row.appendChild(bubble);
+                    row.appendChild(avatar);
+                } else {
+                    row.appendChild(avatar);
+                    row.appendChild(bubble);
+                }
                 chatList.appendChild(row);
             });
         }

@@ -21,8 +21,8 @@ module.exports = async (req, res) => {
       const sinceId = clampInt(u.searchParams.get('sinceId'), 0, Number.MAX_SAFE_INTEGER);
       const limit = clampInt(u.searchParams.get('limit'), 1, 200) || 60;
 
-      const usersResult = await sql`SELECT username FROM users ORDER BY id ASC;`;
-      const participants = usersResult.rows.map((r) => String(r.username));
+      const usersResult = await sql`SELECT username, profile_photo FROM users ORDER BY id ASC;`;
+      const participants = usersResult.rows.map((r) => ({ username: String(r.username), photo: String(r.profile_photo || '') }));
 
       let messages = [];
       if (sinceId && sinceId > 0) {
@@ -30,10 +30,12 @@ module.exports = async (req, res) => {
           SELECT
             m.id,
             m.sender_username,
+            COALESCE(u.profile_photo, '') AS sender_photo,
             m.text,
             m.created_at,
             COALESCE(array_remove(array_agg(r.username), NULL), '{}'::text[]) AS read_by
           FROM chat_messages m
+          LEFT JOIN users u ON u.username = m.sender_username
           LEFT JOIN chat_reads r ON r.message_id = m.id
           WHERE m.id > ${sinceId}
           GROUP BY m.id
@@ -46,10 +48,12 @@ module.exports = async (req, res) => {
           SELECT
             m.id,
             m.sender_username,
+            COALESCE(u.profile_photo, '') AS sender_photo,
             m.text,
             m.created_at,
             COALESCE(array_remove(array_agg(r.username), NULL), '{}'::text[]) AS read_by
           FROM chat_messages m
+          LEFT JOIN users u ON u.username = m.sender_username
           LEFT JOIN chat_reads r ON r.message_id = m.id
           GROUP BY m.id
           ORDER BY m.id DESC
@@ -76,6 +80,7 @@ module.exports = async (req, res) => {
         messages: messages.map((m) => ({
           id: Number(m.id),
           sender: String(m.sender_username || ''),
+          senderPhoto: String(m.sender_photo || ''),
           text: String(m.text || ''),
           createdAt: m.created_at,
           readBy: Array.isArray(m.read_by) ? m.read_by.map((x) => String(x)) : []
@@ -99,6 +104,8 @@ module.exports = async (req, res) => {
         RETURNING id, sender_username, text, created_at;
       `;
       const row = created.rows[0];
+      const senderPhotoResult = await sql`SELECT profile_photo FROM users WHERE username = ${user.username} LIMIT 1;`;
+      const senderPhoto = senderPhotoResult.rows[0] ? String(senderPhotoResult.rows[0].profile_photo || '') : '';
       await sql`
         INSERT INTO chat_reads (message_id, username)
         VALUES (${Number(row.id)}, ${user.username})
@@ -106,7 +113,7 @@ module.exports = async (req, res) => {
       `;
       return sendJson(res, 200, {
         ok: true,
-        message: { id: Number(row.id), sender: String(row.sender_username), text: String(row.text), createdAt: row.created_at, readBy: [user.username] }
+        message: { id: Number(row.id), sender: String(row.sender_username), senderPhoto, text: String(row.text), createdAt: row.created_at, readBy: [user.username] }
       });
     } catch {
       return sendJson(res, 400, { ok: false, error: 'invalid_request' });
