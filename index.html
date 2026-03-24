@@ -3283,7 +3283,7 @@
             }
         }
 
-        function switchView(viewName) {
+        async function switchView(viewName) {
             if (viewName === 'chat' && currentViewName !== 'chat') {
                 lastNonChatView = currentViewName || 'home';
             }
