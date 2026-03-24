@@ -1401,6 +1401,7 @@
                     </div>
                     <div style="display:flex; gap:12px; align-items:center;">
                         <span class="admin-action" data-reset-user-id="${id}">Reset senha</span>
+                        <span class="admin-action" data-delete-user-id="${id}">Excluir</span>
                     </div>
                 `;
                 adminUsersList.appendChild(item);
@@ -1417,6 +1418,29 @@
                     }
                     await adminCarregarUsuarios();
                     adminRenderUsuarios();
+                });
+            });
+
+            adminUsersList.querySelectorAll('.admin-action[data-delete-user-id]').forEach((el) => {
+                el.addEventListener('click', async () => {
+                    const id = Number(el.getAttribute('data-delete-user-id'));
+                    if (!Number.isFinite(id)) return;
+                    const u = adminUsers.find((x) => Number(x && x.id) === id);
+                    const username = u && u.username ? String(u.username) : '';
+                    const ok = confirm(`Excluir usuário "${username}"?\nIsso também removerá o membro com o mesmo nome.`);
+                    if (!ok) return;
+                    const result = await apiJson('/api/users', { method: 'DELETE', body: JSON.stringify({ id, deleteMember: true }) });
+                    if (!result.ok || !result.data || !result.data.ok) {
+                        const err = result && result.data && result.data.error ? String(result.data.error) : '';
+                        if (err === 'cannot_delete_self') alert('Você não pode excluir o usuário logado.');
+                        else if (err === 'cannot_delete_last_admin') alert('Não é possível excluir o último admin.');
+                        else alert('Erro ao excluir usuário.');
+                        return;
+                    }
+                    await adminCarregarUsuarios();
+                    await adminCarregarMembros();
+                    adminRenderUsuarios();
+                    adminRenderMembros();
                 });
             });
         }
@@ -1451,6 +1475,7 @@
                             Ativo
                         </label>
                         <span class="admin-action" data-edit-id="${id}">Editar</span>
+                        <span class="admin-action" data-delete-member-id="${id}">Excluir</span>
                     </div>
                 `;
 
@@ -1477,6 +1502,24 @@
                     const label = adminCreateMemberBtn ? adminCreateMemberBtn.querySelector('span') : null;
                     if (label) label.innerText = 'Salvar Alteração';
                     adminMemberName.focus();
+                });
+            });
+
+            adminMembersList.querySelectorAll('.admin-action[data-delete-member-id]').forEach((el) => {
+                el.addEventListener('click', async () => {
+                    const id = Number(el.getAttribute('data-delete-member-id'));
+                    if (!Number.isFinite(id)) return;
+                    const m = adminMembers.find((x) => Number(x && x.id) === id);
+                    const name = m && m.name ? String(m.name) : '';
+                    const ok = confirm(`Excluir membro "${name}"?`);
+                    if (!ok) return;
+                    const result = await apiJson('/api/members', { method: 'DELETE', body: JSON.stringify({ id }) });
+                    if (!result.ok || !result.data || !result.data.ok) {
+                        alert('Erro ao excluir membro.');
+                        return;
+                    }
+                    await adminCarregarMembros();
+                    adminRenderMembros();
                 });
             });
         }

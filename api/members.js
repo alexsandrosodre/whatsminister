@@ -48,6 +48,18 @@ module.exports = async (req, res) => {
     }
   }
 
-  return methodNotAllowed(res, ['GET', 'POST', 'PUT']);
-};
+  if (req.method === 'DELETE') {
+    try {
+      const body = await readJsonBody(req);
+      const id = Number(body.id);
+      if (!Number.isFinite(id)) return sendJson(res, 400, { ok: false, error: 'missing_id' });
+      const deleted = await sql`DELETE FROM members WHERE id = ${id} RETURNING id;`;
+      if (deleted.rows.length === 0) return sendJson(res, 404, { ok: false, error: 'not_found' });
+      return sendJson(res, 200, { ok: true });
+    } catch {
+      return sendJson(res, 400, { ok: false, error: 'invalid_request' });
+    }
+  }
 
+  return methodNotAllowed(res, ['GET', 'POST', 'PUT', 'DELETE']);
+};

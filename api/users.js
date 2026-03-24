@@ -27,7 +27,19 @@ module.exports = async (req, res) => {
         VALUES (${username}, ${salt}, ${hash}, ${isAdmin}, TRUE)
         RETURNING id, username, is_admin, must_change_password, created_at;
       `;
-      return sendJson(res, 200, { ok: true, user: created.rows[0] });
+      const createdUser = created.rows[0];
+
+      const existingMember = await sql`
+        SELECT id FROM members
+        WHERE LOWER(name) = ${username}
+        ORDER BY id DESC
+        LIMIT 1;
+      `;
+      if (existingMember.rows.length === 0) {
+        await sql`INSERT INTO members (name) VALUES (${username});`;
+      }
+
+      return sendJson(res, 200, { ok: true, user: createdUser });
     } catch (e) {
       const msg = String(e && e.message ? e.message : '');
       if (msg.includes('duplicate') || msg.includes('unique')) {
@@ -62,5 +74,48 @@ module.exports = async (req, res) => {
     }
   }
 
-  return methodNotAllowed(res, ['GET', 'POST', 'PUT']);
+  if (req.method === 'DELETE') {
+    try {
+      const body = await readJsonBody(req);
+      const id = Number(body.id);
+      const deleteMember = body.deleteMember !== false;
+      if (!Number.isFinite(id)) return sendJson(res, 400, { ok: false, error: 'missing_id' });
+
+      const currentAdmin = await sql`
+        SELECT id, username FROM users
+        WHERE LOWER(username) = ${String(admin.username || '').trim().toLowerCase()}
+        ORDER BY id DESC
+        LIMIT 1;
+      `;
+      const currentAdminId = currentAdmin.rows[0] ? Number(currentAdmin.rows[0].id) : NaN;
+      if (Number.isFinite(currentAdminId) && currentAdminId === id) {
+        return sendJson(res, 400, { ok: false, error: 'cannot_delete_self' });
+      }
+
+      const target = await sql`SELECT id, username, is_admin FROM users WHERE id = ${id} LIMIT 1;`;
+      const targetUser = target.rows[0];
+      if (!targetUser) return sendJson(res, 404, { ok: false, error: 'not_found' });
+
+      if (Boolean(targetUser.is_admin)) {
+        const admins = await sql`SELECT COUNT(*)::int AS count FROM users WHERE is_admin = TRUE;`;
+        const count = admins.rows[0] ? Number(admins.rows[0].count) : 0;
+        if (count <= 1) return sendJson(res, 400, { ok: false, error: 'cannot_delete_last_admin' });
+      }
+
+      await sql`DELETE FROM users WHERE id = ${id};`;
+
+      if (deleteMember) {
+        const uname = String(targetUser.username || '').trim().toLowerCase();
+        if (uname) {
+          await sql`DELETE FROM members WHERE LOWER(name) = ${uname};`;
+        }
+      }
+
+      return sendJson(res, 200, { ok: true });
+    } catch {
+      return sendJson(res, 400, { ok: false, error: 'invalid_request' });
+    }
+  }
+
+  return methodNotAllowed(res, ['GET', 'POST', 'PUT', 'DELETE']);
 };
